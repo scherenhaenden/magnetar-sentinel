@@ -1,0 +1,15 @@
+[Unit]
+Description=Magnetar Sentinel Web Analytics Daemon
+After=network.target nginx.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/sc-sentinel/magnetar-sentinel
+EnvironmentFile=/etc/magnetar/magnetar.env
+ExecStart=/home/sc-sentinel/magnetar-sentinel/.venv/bin/gunicorn -w 2 -b 127.0.0.1:5050 app:app
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

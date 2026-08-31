@@ -169,6 +169,74 @@ def _read_lines_from_source(ssh_host: str, ssh_user: str, ssh_key: str, log_dir:
     return lines
 
 
+def discover_all_site_logs(nginx_sites_dir: str = "/etc/nginx/sites-enabled") -> Dict[str, str]:
+    """
+    Automatically discovers all domains and their Nginx access log directories
+    from the server's Nginx site configuration files.
+    """
+    site_targets: Dict[str, str] = {}
+    
+    # 1. Custom JSON config from environment if provided
+    custom_json = os.getenv("MS_SITE_LOGS_JSON")
+    if custom_json:
+        try:
+            parsed = json.loads(custom_json)
+            if isinstance(parsed, dict):
+                site_targets.update(parsed)
+        except Exception:
+            pass
+
+    # 2. Dynamic discovery from Nginx sites-enabled
+    if os.path.isdir(nginx_sites_dir):
+        for conf_file in glob.glob(os.path.join(nginx_sites_dir, "*.conf")):
+            if "default" in os.path.basename(conf_file) or ".bak" in conf_file:
+                continue
+            try:
+                with open(conf_file, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+
+                dom_matches = re.findall(r"server_name\s+([^;]+);", content)
+                chosen_dom = None
+                for dm in dom_matches:
+                    doms = [d.strip() for d in dm.split() if d.strip() and not d.startswith("www.") and not d.startswith("www1.")]
+                    if doms:
+                        chosen_dom = doms[0]
+                        break
+                if not chosen_dom and dom_matches:
+                    chosen_dom = dom_matches[0].split()[0].strip()
+
+                if not chosen_dom:
+                    continue
+
+                # Try explicit access_log directive
+                log_m = re.search(r"access_log\s+([^\s;]+)", content)
+                log_dir = None
+                if log_m and log_m.group(1).lower() != "off":
+                    raw_p = log_m.group(1).strip()
+                    log_dir = os.path.dirname(raw_p) if raw_p.endswith(".log") else raw_p
+
+                # If no explicit access_log, inspect root /home/<user>/...
+                if not log_dir or not os.path.isdir(log_dir):
+                    root_m = re.search(r"root\s+([^\s;]+)", content)
+                    if root_m:
+                        home_match = re.match(r"(/home/[^/]+)", root_m.group(1).strip())
+                        if home_match:
+                            candidate = os.path.join(home_match.group(1), "logs/nginx")
+                            if os.path.isdir(candidate):
+                                log_dir = candidate
+
+                if chosen_dom and log_dir and os.path.isdir(log_dir):
+                    site_targets[chosen_dom] = log_dir
+            except Exception:
+                pass
+
+    # 3. Fallback to generic defaults if no sites discovered
+    if not site_targets:
+        site_targets = dict(DEFAULT_SITE_LOGS)
+
+    return site_targets
+
+
 def run_sync(
     ssh_host: str = "127.0.0.1",
     ssh_user: str = "admin",
@@ -199,10 +267,11 @@ def run_sync(
     ).all()
     existing_hit_keys = set(existing_hits_raw)
 
-    # Ingest across all known site log paths
-    site_targets = dict(DEFAULT_SITE_LOGS)
-    if log_dir not in site_targets.values():
-        site_targets["custom"] = log_dir
+    # Ingest across all discovered site log paths
+    site_targets = discover_all_site_logs()
+    if log_dir and os.path.isdir(log_dir) and log_dir not in site_targets.values():
+        dir_name = os.path.basename(os.path.dirname(log_dir)) if "logs" in log_dir else os.path.basename(log_dir)
+        site_targets[dir_name or "default"] = log_dir
 
     all_parsed_hits = []
     for domain, s_dir in site_targets.items():

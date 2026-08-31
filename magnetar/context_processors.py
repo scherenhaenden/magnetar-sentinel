@@ -59,10 +59,14 @@ def domain_context_processor():
     selected_list = parse_domain_filter(raw_dom)
     domains_list = ["example.com", "blog.example.com", "api.example.com"]
     try:
+        from magnetar.sync import discover_all_site_logs
+        known_sites = set(discover_all_site_logs().keys())
         with get_db_session() as db:
             distinct_doms = db.execute(sa.select(sa.distinct(Hit.domain))).scalars().all()
             if distinct_doms:
-                domains_list = sorted(list(set(d for d in distinct_doms if d)))
+                known_sites.update(d for d in distinct_doms if d and d != "custom")
+        if known_sites:
+            domains_list = sorted(list(known_sites))
     except Exception:
         pass
 

@@ -57,18 +57,23 @@ def get_domain_stats(since: datetime, selected_domains: list[str]) -> list[dict]
 def domain_context_processor():
     raw_dom = request.args.get("domain", "all")
     selected_list = parse_domain_filter(raw_dom)
-    domains_list = ["example.com", "blog.example.com", "api.example.com"]
+    domains_list = []
     try:
-        from magnetar.sync import discover_all_site_logs
-        known_sites = set(discover_all_site_logs().keys())
         with get_db_session() as db:
-            distinct_doms = db.execute(sa.select(sa.distinct(Hit.domain))).scalars().all()
-            if distinct_doms:
-                known_sites.update(d for d in distinct_doms if d and d != "custom")
-        if known_sites:
-            domains_list = sorted(list(known_sites))
+            # Dynamically pull all domains that have actual traffic registered in the logs
+            rows = db.execute(
+                sa.select(Hit.domain, sa.func.count(Hit.id))
+                .where(Hit.domain.is_not(None), Hit.domain != "", Hit.domain != "custom")
+                .group_by(Hit.domain)
+                .order_by(sa.func.count(Hit.id).desc())
+            ).all()
+            if rows:
+                domains_list = [r[0] for r in rows if r[0]]
     except Exception:
         pass
+
+    if not domains_list:
+        domains_list = ["example.com", "blog.example.com", "api.example.com"]
 
     return {
         "raw_domain_param": raw_dom,

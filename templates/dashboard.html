@@ -1,0 +1,956 @@
+{% extends "_base.html" %}
+{% block title %}Dashboard - Magnetar Sentinel{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .filters a {
+        padding: 5px 12px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        margin-right: 5px;
+        color: var(--text);
+        font-size: 0.85rem;
+        text-decoration: none;
+        transition: all 0.15s;
+    }
+    .filters a:hover {
+        border-color: var(--muted);
+        text-decoration: none;
+    }
+    .filters a.active {
+        background-color: var(--accent2);
+        border-color: var(--accent2);
+        color: #fff;
+        font-weight: 600;
+    }
+    .controls {
+        display: flex;
+        gap: 8px;
+    }
+    
+    /* Domain Filter Chips Bar */
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+    .chip-count {
+        background: rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 1px 7px;
+        font-size: 0.75rem;
+        font-family: var(--mono);
+        color: var(--muted);
+    }
+    .domain-chip.active .chip-count {
+        background: var(--accent2);
+        color: #fff;
+    }
+
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .kpi-card {
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        text-align: center;
+    }
+    .kpi-value {
+        font-size: 1.9rem;
+        font-weight: bold;
+        font-family: var(--mono);
+        color: var(--accent2);
+    }
+    .kpi-value.accent  { color: var(--accent); }
+    .kpi-value.green   { color: var(--green); }
+    .kpi-value.orange  { color: var(--orange); }
+    .kpi-label {
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 5px;
+    }
+    .widget-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+    }
+    .widget {
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        cursor: grab;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .widget.dragging {
+        opacity: 0.4;
+        border: 2px dashed var(--accent2);
+    }
+    .widget-header {
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+    }
+    .widget-content table {
+        font-size: 0.88rem;
+        width: 100%;
+    }
+    .widget-content td, .widget-content th {
+        padding: 8px 6px;
+    }
+
+    /* Subtabs inside Widget */
+    .ref-subtab-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--muted);
+        font-size: 0.78rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .ref-subtab-btn:hover {
+        color: var(--text);
+        background: rgba(255,255,255,0.05);
+    }
+    .ref-subtab-btn.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+    }
+
+    /* Clickable Rows for Drilldown */
+    .clickable-row {
+        cursor: pointer;
+        transition: background-color 0.15s, transform 0.1s;
+    }
+    .clickable-row:hover {
+        background-color: rgba(58, 143, 232, 0.12);
+    }
+    .clickable-row:hover td {
+        color: #fff;
+    }
+    .drill-hint {
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-left: 6px;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    .clickable-row:hover .drill-hint {
+        opacity: 1;
+        color: var(--accent2);
+    }
+
+    .badge-bot {
+        background: rgba(245,166,35,0.15);
+        color: var(--orange);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .badge-human {
+        background: rgba(62,207,142,0.15);
+        color: var(--green);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .bar-bg {
+        background: rgba(255,255,255,0.06);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .bar-fill {
+        background: var(--accent2);
+        height: 100%;
+        border-radius: 3px;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(8, 9, 12, 0.78);
+        backdrop-filter: blur(6px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        animation: fadeIn 0.2s ease-out;
+    }
+    .modal-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 740px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        overflow: hidden;
+    }
+    .modal-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255,255,255,0.02);
+    }
+    .modal-close {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 1.3rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+    .modal-close:hover {
+        color: #fff;
+        background: rgba(255,255,255,0.08);
+    }
+    .modal-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+    }
+    .modal-tab-btn {
+        padding: 5px 12px;
+        border-radius: 16px;
+        font-size: 0.82rem;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+    }
+    .modal-tab-btn.active {
+        background: var(--accent2);
+        border-color: var(--accent2);
+        color: #fff;
+        font-weight: 600;
+    }
+    .modal-body {
+        padding: 20px 24px;
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+
+    /* Toast Notification */
+    #toast {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        background: var(--surface);
+        border: 1px solid var(--accent2);
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: var(--radius);
+        font-size: 0.9rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        display: none;
+        z-index: 1000;
+        animation: fadeIn 0.2s ease-in-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+    <div class="filters">
+        <a href="?days=1{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="{% if days == 1 %}active{% endif %}">1d</a>
+        <a href="?days=3{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="{% if days == 3 %}active{% endif %}">3d</a>
+        <a href="?days=7{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="{% if days == 7 %}active{% endif %}">7d</a>
+        <a href="?days=14{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="{% if days == 14 %}active{% endif %}">14d</a>
+        <a href="?days=30{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="{% if days == 30 %}active{% endif %}">30d</a>
+    </div>
+    <div class="controls">
+        <button id="seed-btn" class="btn" title="Generar datos sintéticos de prueba">🌱 Seed Demo Data</button>
+        <button id="reset-layout" class="btn">Reset Layout</button>
+        <button id="sync-btn" class="btn-primary">Sync Now</button>
+    </div>
+</div>
+
+<!-- Interactive Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="selectSingleDomain('all')">
+        <span>🌐 All Domains</span>
+        <span class="chip-count">{{ summary.total_hits }}</span>
+    </div>
+
+    {% for d in domain_stats %}
+    <div class="domain-chip {% if d.selected and not is_all_domains %}active{% endif %}" 
+         onclick="toggleDomainChip('{{ d.domain }}', event)" 
+         title="Click to filter {{ d.domain }}. Ctrl/Shift+Click to combine multiple domains.">
+        <span>
+            {% if 'rocka' in d.domain %}🎸{% elif 'snippet' in d.domain %}💻{% else %}🧪{% endif %}
+            {{ d.domain }}
+        </span>
+        <span class="chip-count">{{ d.hits }} ({{ d.pct }}%)</span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-value accent">{{ "{:,}".format(summary.total_hits) }}</div>
+        <div class="kpi-label">Total Hits</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value">{{ "{:,}".format(summary.unique_ips) }}</div>
+        <div class="kpi-label">Unique IPs</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value green">{{ "{:,}".format(summary.human_hits) }}</div>
+        <div class="kpi-label">Human Hits</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value orange">{{ "{:,}".format(summary.bot_hits) }}</div>
+        <div class="kpi-label">Bot Hits</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--text)">{{ summary.countries | length }}</div>
+        <div class="kpi-label">Countries</div>
+    </div>
+    <div class="kpi-card" onclick="window.location.href='/security'" style="cursor:pointer;" title="Click para ver IPs bloqueadas en el Firewall">
+        <div class="kpi-value accent">{{ banned_count }}</div>
+        <div class="kpi-label" style="display:flex; align-items:center; justify-content:center; gap:4px;">
+            <span>🛡️ Blocked IPs</span>
+            <span style="font-size:0.7rem; color:var(--accent2)">→</span>
+        </div>
+    </div>
+</div>
+
+<div class="widget-grid" id="widget-grid">
+    <!-- Countries Widget -->
+    <div class="widget" draggable="true" id="widget-countries">
+        <div class="widget-header">
+            <span>🌍 Countries <small style="font-size:0.75rem; color:var(--accent2); text-transform:none;">(click row to inspect)</small></span>
+            <span>⋮⋮</span>
+        </div>
+        <div class="widget-content">
+            {% set max_c = summary.countries[0].hits if summary.countries else 1 %}
+            <table>
+                {% for c in summary.countries[:12] %}
+                <tr class="clickable-row" onclick="openCountryDrilldown('{{ c.country }}', '{{ c.country_code }}')">
+                    <td>
+                        {{ c.country }} <span style="color:var(--muted);font-size:0.75rem">({{ c.country_code }})</span>
+                        <span class="drill-hint">🔍 drilldown</span>
+                    </td>
+                    <td style="text-align: right; width: 110px;">
+                        <span class="mono">{{ c.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="width: {{ (c.hits / max_c * 100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td style="color:var(--muted);text-align:center;">No country data</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    
+    <!-- Referrers Widget (With Aggregated / Disaggregated / Keywords subtabs) -->
+    <div class="widget" draggable="true" id="widget-referrers">
+        <div class="widget-header">
+            <span>🔗 External Referrers</span>
+            <span>⋮⋮</span>
+        </div>
+
+        <div style="display:flex; gap:6px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+            <button class="ref-subtab-btn active" id="btn-ref-domains" onclick="switchRefTab('domains')">🌐 Dominios</button>
+            <button class="ref-subtab-btn" id="btn-ref-full" onclick="switchRefTab('full')">🔗 URLs Completas</button>
+            <button class="ref-subtab-btn" id="btn-ref-keywords" onclick="switchRefTab('keywords')">🔍 Búsquedas / Keywords</button>
+        </div>
+
+        <div class="widget-content">
+            <!-- 1. Dominios Agregados -->
+            <table id="table-ref-domains">
+                {% set max_rd = summary.domain_referrers[0].hits if summary.domain_referrers else 1 %}
+                {% for r in summary.domain_referrers[:12] %}
+                <tr class="clickable-row" onclick="openReferrerDrilldown('{{ r.referer }}')">
+                    <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span class="mono" style="color:var(--accent2)">{{ r.referer }}</span>
+                        <span class="drill-hint">🔍 from → to</span>
+                    </td>
+                    <td style="text-align: right; width: 90px;">
+                        <span class="mono">{{ r.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--accent); width: {{ (r.hits / max_rd * 100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td style="color:var(--muted);text-align:center;">No external referrers</td></tr>
+                {% endfor %}
+            </table>
+
+            <!-- 2. URLs Completas Desagregadas -->
+            <table id="table-ref-full" style="display: none;">
+                {% set max_rf = summary.full_referrers[0].hits if summary.full_referrers else 1 %}
+                {% for r in summary.full_referrers[:12] %}
+                <tr class="clickable-row" onclick="openReferrerDrilldown('{{ r.referer }}')">
+                    <td style="max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span class="mono" style="color:var(--accent2); font-size:0.8rem;">{{ r.referer }}</span>
+                        <span class="drill-hint">🔍 inspect</span>
+                    </td>
+                    <td style="text-align: right; width: 85px;">
+                        <span class="mono">{{ r.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--accent); width: {{ (r.hits / max_rf * 100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td style="color:var(--muted);text-align:center;">No full URLs</td></tr>
+                {% endfor %}
+            </table>
+
+            <!-- 3. Keywords / Búsquedas Detectadas -->
+            <table id="table-ref-keywords" style="display: none;">
+                {% set max_kw = summary.search_keywords[0].hits if summary.search_keywords else 1 %}
+                {% for kw in summary.search_keywords[:12] %}
+                <tr class="clickable-row" onclick="openReferrerDrilldown('{{ kw.keyword }}')">
+                    <td style="max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span class="mono" style="color:var(--green)">"{{ kw.keyword }}"</span>
+                        <span style="font-size:0.75rem; color:var(--muted)"> ({{ kw.source }})</span>
+                        <span class="drill-hint">🔍 target</span>
+                    </td>
+                    <td style="text-align: right; width: 85px;">
+                        <span class="mono">{{ kw.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--green); width: {{ (kw.hits / max_kw * 100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td style="color:var(--muted);text-align:center; padding:15px;">No search keywords detected in current window</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Top Articles Widget -->
+    <div class="widget" draggable="true" id="widget-articles">
+        <div class="widget-header">📰 Top Articles & Pages <span>⋮⋮</span></div>
+        <div class="widget-content">
+            {% set max_a = summary.top_articles[0].hits if summary.top_articles else 1 %}
+            <table>
+                {% for a in summary.top_articles[:12] %}
+                <tr>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span class="mono">{{ a.path }}</span>
+                    </td>
+                    <td style="text-align: right; width: 90px;">
+                        <span class="mono">{{ a.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--green); width: {{ (a.hits / max_a * 100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td style="color:var(--muted);text-align:center;">No article hits</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Top Visitors Widget -->
+    <div class="widget" draggable="true" id="widget-visitors">
+        <div class="widget-header">👥 Top Visitors <span>⋮⋮</span></div>
+        <div class="widget-content">
+            <table>
+                {% for v in summary.top_visitors[:12] %}
+                <tr>
+                    <td>
+                        <span class="mono">{{ v.ip }}</span>
+                        {% if v.is_bot %}
+                        <span class="badge-bot">Bot</span>
+                        {% else %}
+                        <span class="badge-human">Human</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right" class="mono">{{ v.hits }}</td>
+                </tr>
+                {% else %}
+                <tr><td style="color:var(--muted);text-align:center;">No visitor data</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Drilldown Modal -->
+<div id="drilldown-modal" class="modal-overlay" onclick="closeModalOnBackdrop(event)">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="modal-title" style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:8px;"></h3>
+            <button class="modal-close" onclick="closeDrilldownModal()">✕</button>
+        </div>
+        <div class="modal-tabs" id="modal-tabs"></div>
+        <div class="modal-body" id="modal-body">
+            <div style="text-align:center; padding:30px; color:var(--muted)">Cargando desglose...</div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const currentDays = {{ days }};
+    const currentDomainParam = '{{ raw_domain_param }}';
+
+    function showToast(msg, duration = 3000) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, duration);
+    }
+
+    // Switch Referrer subtabs (Dominios vs URLs Completas vs Keywords)
+    function switchRefTab(tab) {
+        const tabs = ['domains', 'full', 'keywords'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`btn-ref-${t}`);
+            const table = document.getElementById(`table-ref-${t}`);
+            if (t === tab) {
+                if (btn) btn.classList.add('active');
+                if (table) table.style.display = 'table';
+            } else {
+                if (btn) btn.classList.remove('active');
+                if (table) table.style.display = 'none';
+            }
+        });
+    }
+
+    // Modal helpers
+    function openModal() {
+        document.getElementById('drilldown-modal').style.display = 'flex';
+    }
+    function closeDrilldownModal() {
+        document.getElementById('drilldown-modal').style.display = 'none';
+    }
+    function closeModalOnBackdrop(e) {
+        if (e.target.id === 'drilldown-modal') closeDrilldownModal();
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDrilldownModal();
+    });
+
+    // ── Referrer Drilldown (De dónde hacia dónde) ──────────────────────────
+    async function openReferrerDrilldown(refererUrl) {
+        openModal();
+        const titleEl = document.getElementById('modal-title');
+        const tabsEl = document.getElementById('modal-tabs');
+        const bodyEl = document.getElementById('modal-body');
+
+        titleEl.innerHTML = `<span>🔗</span> Referrer: <span class="mono" style="color:var(--accent2); font-size:0.95rem;">${refererUrl}</span>`;
+        tabsEl.innerHTML = `
+            <button class="modal-tab-btn active" onclick="renderReferrerDestinations()">🎯 Páginas de Destino (De dónde → Hacia dónde)</button>
+            <button class="modal-tab-btn" onclick="renderReferrerCountries()">🌍 Países de Origen</button>
+        `;
+        bodyEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--muted)">Cargando métricas de origen y destino...</div>`;
+
+        try {
+            const res = await fetch(`/api/drilldown/referrer?referer=${encodeURIComponent(refererUrl)}&days=${currentDays}&domain=${encodeURIComponent(currentDomainParam)}`);
+            const data = await res.json();
+            window._lastRefData = data;
+            renderReferrerDestinations();
+        } catch (err) {
+            bodyEl.innerHTML = `<div style="color:var(--accent); text-align:center;">Error al cargar datos del referrer.</div>`;
+        }
+    }
+
+    function renderReferrerDestinations() {
+        setModalTabActive(0);
+        const data = window._lastRefData;
+        if (!data || !data.from_to_pages || data.from_to_pages.length === 0) {
+            document.getElementById('modal-body').innerHTML = `<p style="color:var(--muted); text-align:center;">No se registraron páginas de destino para este referrer en el periodo seleccionado.</p>`;
+            return;
+        }
+        let html = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:0.85rem; color:var(--muted)">
+                <span>Total Hits desde este origen: <strong style="color:var(--text)">${data.total_hits}</strong></span>
+                <span>Visitantes únicos: <strong style="color:var(--text)">${data.unique_ips}</strong></span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Página de Destino (Landing / Artículo)</th>
+                        <th style="text-align:right; width:130px;">Hits & Tráfico</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        data.from_to_pages.forEach(p => {
+            html += `
+                <tr>
+                    <td class="mono" style="color:var(--accent2); word-break:break-all;">${p.target_path}</td>
+                    <td style="text-align:right;">
+                        <span class="mono">${p.hits} (${p.pct}%)</span>
+                        <div class="bar-bg"><div class="bar-fill" style="width:${p.pct}%"></div></div>
+                    </td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('modal-body').innerHTML = html;
+    }
+
+    function renderReferrerCountries() {
+        setModalTabActive(1);
+        const data = window._lastRefData;
+        if (!data || !data.top_countries || data.top_countries.length === 0) {
+            document.getElementById('modal-body').innerHTML = `<p style="color:var(--muted); text-align:center;">No hay desglose de países disponible.</p>`;
+            return;
+        }
+        let html = `
+            <table>
+                <thead>
+                    <tr><th>País de Origen</th><th style="text-align:right;">Visitantes</th></tr>
+                </thead>
+                <tbody>
+        `;
+        const maxC = data.top_countries[0].count || 1;
+        data.top_countries.forEach(c => {
+            html += `
+                <tr>
+                    <td>${c.country} <span style="color:var(--muted); font-size:0.8rem">(${c.country_code})</span></td>
+                    <td style="text-align:right; width:130px;">
+                        <span class="mono">${c.count}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--green); width:${(c.count/maxC*100)|0}%"></div></div>
+                    </td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('modal-body').innerHTML = html;
+    }
+
+    // ── Country Drilldown ──────────────────────────────────────────────────
+    async function openCountryDrilldown(countryName, countryCode) {
+        openModal();
+        const titleEl = document.getElementById('modal-title');
+        const tabsEl = document.getElementById('modal-tabs');
+        const bodyEl = document.getElementById('modal-body');
+
+        titleEl.innerHTML = `<span>🌍</span> País: <strong style="color:var(--text)">${countryName} (${countryCode})</strong>`;
+        tabsEl.innerHTML = `
+            <button class="modal-tab-btn active" onclick="renderCountryPages()">📰 Artículos y Páginas Más Visitadas</button>
+            <button class="modal-tab-btn" onclick="renderCountryReferrers()">🔗 Referrers de Origen</button>
+        `;
+        bodyEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--muted)">Cargando métricas del país...</div>`;
+
+        try {
+            const res = await fetch(`/api/drilldown/country?country=${encodeURIComponent(countryName)}&code=${encodeURIComponent(countryCode)}&days=${currentDays}&domain=${encodeURIComponent(currentDomainParam)}`);
+            const data = await res.json();
+            window._lastCountryData = data;
+            renderCountryPages();
+        } catch (err) {
+            bodyEl.innerHTML = `<div style="color:var(--accent); text-align:center;">Error al cargar datos del país.</div>`;
+        }
+    }
+
+    function renderCountryPages() {
+        setModalTabActive(0);
+        const data = window._lastCountryData;
+        if (!data || !data.top_pages || data.top_pages.length === 0) {
+            document.getElementById('modal-body').innerHTML = `<p style="color:var(--muted); text-align:center;">No hay páginas registradas para este país.</p>`;
+            return;
+        }
+        let html = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:0.85rem; color:var(--muted)">
+                <span>Total Hits: <strong style="color:var(--text)">${data.total_hits}</strong> (Humanos: <strong style="color:var(--green)">${data.human_hits}</strong>, Bots: <strong style="color:var(--orange)">${data.bot_hits}</strong>)</span>
+                <span>Visitantes Únicos: <strong style="color:var(--text)">${data.unique_ips}</strong></span>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>Página / Recurso</th><th style="text-align:right; width:120px;">Hits</th></tr>
+                </thead>
+                <tbody>
+        `;
+        const maxP = data.top_pages[0].hits || 1;
+        data.top_pages.forEach(p => {
+            html += `
+                <tr>
+                    <td class="mono" style="color:var(--accent2); word-break:break-all;">${p.path}</td>
+                    <td style="text-align:right;">
+                        <span class="mono">${p.hits}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--green); width:${(p.hits/maxP*100)|0}%"></div></div>
+                    </td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('modal-body').innerHTML = html;
+    }
+
+    function renderCountryReferrers() {
+        setModalTabActive(1);
+        const data = window._lastCountryData;
+        if (!data || !data.top_referrers || data.top_referrers.length === 0) {
+            document.getElementById('modal-body').innerHTML = `<p style="color:var(--muted); text-align:center;">No hay referrers externos para este país.</p>`;
+            return;
+        }
+        let html = `
+            <table>
+                <thead>
+                    <tr><th>Referrer de Origen</th><th style="text-align:right; width:120px;">Hits</th></tr>
+                </thead>
+                <tbody>
+        `;
+        const maxR = data.top_referrers[0].hits || 1;
+        data.top_referrers.forEach(r => {
+            html += `
+                <tr>
+                    <td class="mono" style="color:var(--accent2); word-break:break-all;">${r.referer}</td>
+                    <td style="text-align:right;">
+                        <span class="mono">${r.hits}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--accent); width:${(r.hits/maxR*100)|0}%"></div></div>
+                    </td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('modal-body').innerHTML = html;
+    }
+
+    function setModalTabActive(index) {
+        const btns = document.querySelectorAll('.modal-tab-btn');
+        btns.forEach((b, i) => {
+            if (i === index) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+    }
+
+    // Single domain selection
+    function selectSingleDomain(dom) {
+        const url = new URL(window.location.href);
+        if (dom === 'all' || !dom || dom.trim() === '') {
+            url.searchParams.delete('domain');
+        } else {
+            url.searchParams.set('domain', dom.trim());
+        }
+        window.location.href = url.pathname + (url.search ? url.search : '');
+    }
+
+    // Toggle domain chip
+    function toggleDomainChip(domainName, event) {
+        const url = new URL(window.location.href);
+        const currentParam = url.searchParams.get('domain') || 'all';
+        let currentList = currentParam === 'all' ? [] : currentParam.split(',').map(s => s.trim());
+
+        if (event.shiftKey || event.ctrlKey || event.metaKey) {
+            if (currentList.includes(domainName)) {
+                currentList = currentList.filter(d => d !== domainName);
+            } else {
+                currentList.push(domainName);
+            }
+        } else {
+            if (currentList.length === 1 && currentList[0] === domainName) {
+                currentList = [];
+            } else {
+                currentList = [domainName];
+            }
+        }
+
+        if (currentList.length === 0) {
+            url.searchParams.delete('domain');
+        } else {
+            url.searchParams.set('domain', currentList.join(','));
+        }
+        window.location.href = url.pathname + (url.search ? url.search : '');
+    }
+
+    // Sync functionality
+    document.getElementById('sync-btn').addEventListener('click', async (e) => {
+        const btn = e.target;
+        btn.textContent = 'Syncing...';
+        btn.disabled = true;
+        showToast('🔄 Sincronizando logs del servidor...');
+        try {
+            const res = await fetch('/api/sync/now', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                showToast(`✅ Sincronizado! +${data.new_hits || 0} hits en ${data.duration_ms || 0}ms`);
+                setTimeout(() => window.location.reload(), 700);
+            } else {
+                showToast('⚠️ Error: ' + (data.error || 'unknown'));
+                btn.textContent = 'Sync Now';
+                btn.disabled = false;
+            }
+        } catch (err) {
+            showToast('❌ Error de conexión al sincronizar');
+            btn.textContent = 'Sync Now';
+            btn.disabled = false;
+        }
+    });
+
+    // Seed Demo Data
+    document.getElementById('seed-btn').addEventListener('click', async (e) => {
+        const btn = e.target;
+        btn.textContent = 'Generating...';
+        btn.disabled = true;
+        showToast('🌱 Generando dataset sintético multi-dominio...');
+        try {
+            const res = await fetch('/api/seed', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                showToast('✅ Datos de prueba generados!');
+                setTimeout(() => window.location.reload(), 700);
+            } else {
+                showToast('❌ Error: ' + data.error);
+                btn.textContent = '🌱 Seed Demo Data';
+                btn.disabled = false;
+            }
+        } catch (err) {
+            showToast('❌ Error al invocar seed endpoint');
+            btn.textContent = '🌱 Seed Demo Data';
+            btn.disabled = false;
+        }
+    });
+
+    // Drag and Drop Grid
+    const grid = document.getElementById('widget-grid');
+    let draggedItem = null;
+
+    grid.addEventListener('dragstart', (e) => {
+        const target = e.target.closest('.widget');
+        if(target) {
+            draggedItem = target;
+            setTimeout(() => target.classList.add('dragging'), 0);
+        }
+    });
+
+    grid.addEventListener('dragend', (e) => {
+        const target = e.target.closest('.widget');
+        if(target) {
+            target.classList.remove('dragging');
+            draggedItem = null;
+            saveLayout();
+        }
+    });
+
+    grid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(grid, e.clientY);
+        const widget = document.querySelector('.dragging');
+        if (widget) {
+            if (afterElement == null) {
+                grid.appendChild(widget);
+            } else {
+                grid.insertBefore(widget, afterElement);
+            }
+        }
+    });
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.widget:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function saveLayout() {
+        const order = [...grid.children].map(w => w.id);
+        localStorage.setItem('magnetar_grid_v1', JSON.stringify(order));
+    }
+
+    function loadLayout() {
+        const saved = localStorage.getItem('magnetar_grid_v1');
+        if (saved) {
+            try {
+                const order = JSON.parse(saved);
+                order.reverse().forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) grid.prepend(el);
+                });
+            } catch(e) {}
+        }
+    }
+
+    document.getElementById('reset-layout').addEventListener('click', () => {
+        localStorage.removeItem('magnetar_grid_v1');
+        showToast('Layout restablecido por defecto');
+        setTimeout(() => window.location.reload(), 400);
+    });
+
+    loadLayout();
+</script>
+{% endblock %}

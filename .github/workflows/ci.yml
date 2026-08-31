@@ -1,0 +1,50 @@
+name: CI/CD Pipeline & Release
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Run Unit Tests & Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run Pytest Suite
+        run: |
+          pytest tests/ -v
+
+      - name: Package Release Archive
+        if: github.ref == 'refs/heads/master'
+        run: |
+          tar -czvf magnetar-sentinel-latest.tar.gz \
+            --exclude='.git' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            --exclude='magnetar.db' \
+            --exclude='.pytest_cache' \
+            .
+
+      - name: Upload Release Artifact
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: magnetar-sentinel-build
+          path: magnetar-sentinel-latest.tar.gz
+          retention-days: 14

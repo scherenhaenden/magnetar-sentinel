@@ -1,0 +1,124 @@
+{% extends "_base.html" %}
+{% block title %}Retention - Magnetar Sentinel{% endblock %}
+{% block page_title %}Retention{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+    .retention-table th, .retention-table td {
+        text-align: center;
+    }
+    .retention-table th:first-child, .retention-table td:first-child {
+        text-align: left;
+    }
+    .retention-cell {
+        color: #fff;
+        font-weight: 600;
+    }
+    .note {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <h3 class="card-title">Cohort Retention Matrix</h3>
+    <table class="retention-table">
+        <thead>
+            <tr>
+                <th>Cohort Week</th>
+                <th>New IPs</th>
+                <th>W+0</th>
+                <th>W+1</th>
+                <th>W+2</th>
+                <th>W+3</th>
+                <th>W+4</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in cohorts %}
+            <tr>
+                <td><strong>{{ c.week_label }}</strong></td>
+                <td class="mono">{{ c.new_ips }}</td>
+                {% for r in c.retention %}
+                    {% if r is not none %}
+                        {% set bg_color = 'rgba(62, 207, 142, ' ~ (0.15 + r / 120.0) ~ ')' %}
+                        <td class="retention-cell" style="background-color: {{ bg_color }}">{{ r }}%</td>
+                    {% else %}
+                        <td style="color: var(--muted)">—</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 20px;">No cohort data for this domain</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="note">
+        ℹ️ Based on IP session tracking — dynamic IP visitors will be represented across their respective active weeks.
+    </div>
+</div>
+{% endblock %}

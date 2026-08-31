@@ -1,0 +1,213 @@
+{% extends "_base.html" %}
+{% block title %}Countries Report - Magnetar Sentinel{% endblock %}
+{% block page_title %}Geographic Distribution (Countries & Cities){% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+
+    .report-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 20px;
+    }
+    @media(max-width: 990px) {
+        .report-grid { grid-template-columns: 1fr; }
+    }
+
+    .clickable-row {
+        cursor: pointer;
+        transition: background-color 0.15s;
+    }
+    .clickable-row:hover {
+        background-color: rgba(58, 143, 232, 0.15);
+    }
+    .bar-bg {
+        background: rgba(255,255,255,0.06);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .bar-fill {
+        background: var(--green);
+        height: 100%;
+        border-radius: 3px;
+    }
+
+    #detail-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="report-grid">
+    <!-- Left: Countries Table -->
+    <div class="card">
+        <h3 class="card-title">🌍 Países Detectados (GeoIP)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>País</th>
+                    <th style="text-align:right;">Visitantes Únicos</th>
+                    <th style="text-align:right; width:110px;">Hits Totales</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set max_c = summary.countries[0].hits if summary.countries else 1 %}
+                {% for c in summary.countries %}
+                <tr class="clickable-row" onclick="inspectCountry('{{ c.country }}', '{{ c.country_code }}')">
+                    <td>
+                        <strong style="color:var(--text)">{{ c.country }}</strong>
+                        <span style="color:var(--muted); font-size:0.78rem">({{ c.country_code }})</span>
+                    </td>
+                    <td style="text-align:right;" class="mono">{{ c.unique_ips }}</td>
+                    <td style="text-align:right;">
+                        <span class="mono">{{ c.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="width:{{ (c.hits/max_c*100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" style="text-align:center; color:var(--muted)">No country data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Right: Country Detail Breakdown -->
+    <div id="detail-panel">
+        <h3 class="card-title" id="country-detail-title">📊 Desglose de País</h3>
+        <div id="country-detail-content">
+            <div style="text-align:center; padding:50px 20px; color:var(--muted);">
+                👈 Selecciona un país para ver los artículos leídos y referrers de esa audiencia.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const currentDays = {{ days }};
+    const currentDomainParam = '{{ raw_domain_param }}';
+
+    async function inspectCountry(name, code) {
+        const titleEl = document.getElementById('country-detail-title');
+        const contEl = document.getElementById('country-detail-content');
+
+        titleEl.innerHTML = `🌍 Métricas para: <strong style="color:var(--accent2)">${name} (${code})</strong>`;
+        contEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--muted)">Cargando métricas del país...</div>`;
+
+        try {
+            const res = await fetch(`/api/drilldown/country?country=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}&days=${currentDays}&domain=${encodeURIComponent(currentDomainParam)}`);
+            const data = await res.json();
+
+            let html = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:18px; font-size:0.85rem; color:var(--muted)">
+                    <span>Total Hits: <strong style="color:var(--text)">${data.total_hits}</strong></span>
+                    <span>Humanos: <strong style="color:var(--green)">${data.human_hits}</strong> · Bots: <strong style="color:var(--orange)">${data.bot_hits}</strong></span>
+                    <span>Visitantes Únicos: <strong style="color:var(--text)">${data.unique_ips}</strong></span>
+                </div>
+
+                <h4 style="margin:20px 0 10px 0; font-size:0.88rem; color:var(--muted); text-transform:uppercase;">📰 Artículos Más Leídos en ${name}</h4>
+                <table>
+                    <thead><tr><th>Ruta / Artículo</th><th style="text-align:right; width:90px;">Hits</th></tr></thead>
+                    <tbody>
+            `;
+            const maxP = data.top_pages && data.top_pages[0] ? data.top_pages[0].hits : 1;
+            (data.top_pages || []).forEach(p => {
+                html += `
+                    <tr>
+                        <td class="mono" style="color:var(--accent2); font-size:0.85rem; word-break:break-all;">${p.path}</td>
+                        <td style="text-align:right;">
+                            <span class="mono">${p.hits}</span>
+                            <div class="bar-bg"><div class="bar-fill" style="width:${(p.hits/maxP*100)|0}%"></div></div>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+
+            if (data.top_referrers && data.top_referrers.length > 0) {
+                html += `<h4 style="margin:25px 0 10px 0; font-size:0.88rem; color:var(--muted); text-transform:uppercase;">🔗 Referrers de Procedencia</h4><table><thead><tr><th>Referrer</th><th style="text-align:right; width:90px;">Hits</th></tr></thead><tbody>`;
+                data.top_referrers.forEach(r => {
+                    html += `<tr><td class="mono" style="font-size:0.82rem; word-break:break-all;">${r.referer}</td><td style="text-align:right;" class="mono">${r.hits}</td></tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+
+            contEl.innerHTML = html;
+        } catch (err) {
+            contEl.innerHTML = `<div style="color:var(--accent); text-align:center;">Error al cargar datos.</div>`;
+        }
+    }
+
+    {% if summary.countries %}
+    inspectCountry('{{ summary.countries[0].country }}', '{{ summary.countries[0].country_code }}');
+    {% endif %}
+</script>
+{% endblock %}

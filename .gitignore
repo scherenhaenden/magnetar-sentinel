@@ -1,0 +1,29 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+magnetar.db
+
+# Environment & Secrets (NEVER commit secrets)
+.env
+.env.*
+*.env
+!config.example.env
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Build & packaging
+*.egg-info/
+dist/
+build/
+.DS_Store
+*.log
+

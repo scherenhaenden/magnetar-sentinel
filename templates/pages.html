@@ -1,0 +1,124 @@
+{% extends "_base.html" %}
+{% block title %}Pages & Articles - Magnetar Sentinel{% endblock %}
+{% block page_title %}Pages & Content Performance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+    .bar-bg {
+        background: rgba(255,255,255,0.06);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .bar-fill {
+        background: var(--green);
+        height: 100%;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <h3 class="card-title">📰 Todas las Páginas y Artículos Visitados</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Ruta / Recurso</th>
+                <th>Dominio(s)</th>
+                <th style="text-align:right;">Lectores Únicos</th>
+                <th style="text-align:right;">Humanos</th>
+                <th style="text-align:right;">Bots</th>
+                <th style="text-align:right; width:120px;">Total Hits</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set max_h = pages_data[0].hits if pages_data else 1 %}
+            {% for p in pages_data %}
+            <tr>
+                <td class="mono" style="color:var(--accent2); word-break:break-all;">
+                    {{ p.path }}
+                    {% if p.top_referrers %}
+                    <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">
+                        Top origen: <span style="color:var(--text)">{{ p.top_referrers[0] }}</span>
+                    </div>
+                    {% endif %}
+                </td>
+                <td style="font-size:0.8rem; color:var(--muted)">{{ p.domains|join(', ') }}</td>
+                <td style="text-align:right;" class="mono">{{ p.unique_ips }}</td>
+                <td style="text-align:right; color:var(--green);" class="mono">{{ p.human_hits }}</td>
+                <td style="text-align:right; color:var(--orange);" class="mono">{{ p.bot_hits }}</td>
+                <td style="text-align:right;">
+                    <span class="mono">{{ p.hits }}</span>
+                    <div class="bar-bg"><div class="bar-fill" style="width:{{ (p.hits/max_h*100)|int }}%"></div></div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:30px;">No pages recorded in this window</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

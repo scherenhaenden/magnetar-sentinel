@@ -1,0 +1,341 @@
+{% extends "_base.html" %}
+{% block title %}Funnels - Magnetar Sentinel{% endblock %}
+{% block page_title %}Funnels{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+    .funnel-layout {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .funnel-list {
+        flex: 1;
+        min-width: 300px;
+    }
+    .funnel-builder {
+        flex: 1;
+        min-width: 400px;
+    }
+    .funnel-item {
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 15px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .funnel-item h4 {
+        margin: 0 0 5px 0;
+    }
+    .funnel-meta {
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
+    .funnel-mini-bar {
+        display: flex;
+        height: 10px;
+        background-color: var(--border);
+        border-radius: 5px;
+        overflow: hidden;
+        margin-top: 10px;
+        width: 150px;
+    }
+    .funnel-mini-bar-step {
+        height: 100%;
+        background-color: var(--accent2);
+        border-right: 1px solid var(--surface);
+    }
+    .step-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: center;
+    }
+    .step-row input {
+        background-color: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px;
+        border-radius: 4px;
+        flex: 1;
+    }
+    .remove-step {
+        background: none;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 1.2rem;
+    }
+    .funnel-detail {
+        width: 100%;
+        margin-top: 20px;
+    }
+    .funnel-viz {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 30px;
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow-x: auto;
+    }
+    .viz-step {
+        text-align: center;
+        flex: 1;
+        min-width: 120px;
+    }
+    .viz-arrow {
+        color: var(--muted);
+        font-size: 1.5rem;
+        flex: 0 0 50px;
+        text-align: center;
+    }
+    .viz-count {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--accent2);
+        margin: 10px 0;
+    }
+    .viz-pct {
+        color: var(--muted);
+        font-size: 0.9rem;
+    }
+    .viz-bar {
+        height: 20px;
+        background-color: var(--accent2);
+        margin: 0 auto;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="funnel-layout">
+    <div class="funnel-list card">
+        <h3 class="card-title">Saved Funnels</h3>
+        {% for f in funnels %}
+        <div class="funnel-item">
+            <div>
+                <h4><a href="?funnel={{ f.id }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}">{{ f.name }}</a></h4>
+                <div class="funnel-meta">{{ f.steps|length }} steps • {{ f.conversion_rate }}% conversion {% if f.domain %}<span style="color:var(--accent2); font-size:0.78rem">({{ f.domain }})</span>{% endif %}</div>
+                <div class="funnel-mini-bar">
+                    <div class="funnel-mini-bar-step" style="width: 100%"></div>
+                    <div class="funnel-mini-bar-step" style="width: {{ f.conversion_rate }}%"></div>
+                </div>
+            </div>
+            <button class="btn btn-delete" data-id="{{ f.id }}">Delete</button>
+        </div>
+        {% else %}
+        <p class="funnel-meta">No funnels created yet for this domain.</p>
+        {% endfor %}
+    </div>
+
+    <div class="funnel-builder card">
+        <h3 class="card-title">Create New Funnel</h3>
+        <div style="margin-bottom: 15px;">
+            <label style="display:block;margin-bottom:5px; font-size:0.85rem; color:var(--muted)">Target Domain</label>
+            <select id="funnel-domain-input" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:4px; margin-bottom:12px;">
+                <option value="all">All Domains</option>
+                {% for d in available_domains %}
+                <option value="{{ d }}" {% if selected_domains|length == 1 and selected_domains[0] == d %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+            <label style="display:block;margin-bottom:5px; font-size:0.85rem; color:var(--muted)">Funnel Name</label>
+            <input type="text" id="funnel-name" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:4px;" placeholder="e.g. Article Reading Flow">
+        </div>
+        
+        <div id="steps-container">
+            <div class="step-row">
+                <input type="text" class="step-name" placeholder="Step 1 Name (e.g. Landing)">
+                <input type="text" class="step-pattern" placeholder="Pattern (e.g. ^/$|/home)">
+                <button class="remove-step">✕</button>
+            </div>
+            <div class="step-row">
+                <input type="text" class="step-name" placeholder="Step 2 Name (e.g. Article)">
+                <input type="text" class="step-pattern" placeholder="Pattern (e.g. /article-page/|/article/)">
+                <button class="remove-step">✕</button>
+            </div>
+        </div>
+        
+        <button id="add-step-btn" class="btn" style="margin-top: 10px;">+ Add Step</button>
+        
+        <div style="margin-top: 20px; text-align: right;">
+            <button id="save-funnel-btn" class="btn-primary">Save Funnel</button>
+        </div>
+    </div>
+</div>
+
+{% if selected_funnel %}
+<div class="funnel-detail card">
+    <h3 class="card-title">Funnel Visualization: {{ selected_funnel.name }}</h3>
+    <div class="funnel-viz">
+        {% set first_step = selected_funnel.steps[0].name %}
+        {% set first_count = funnel_stats.get(first_step, 1) %}
+        {% if first_count == 0 %}{% set first_count = 1 %}{% endif %}
+        
+        {% for step in selected_funnel.steps %}
+            {% set count = funnel_stats.get(step.name, 0) %}
+            {% set pct = (count / first_count * 100)|round(1) %}
+            <div class="viz-step">
+                <h4>{{ step.name }}</h4>
+                <div class="viz-count mono">{{ count }}</div>
+                <div class="viz-pct">{{ pct }}%</div>
+                <div class="viz-bar" style="width: {{ pct }}%;"></div>
+            </div>
+            {% if not loop.last %}
+            <div class="viz-arrow">→</div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add Step
+    document.getElementById('add-step-btn').addEventListener('click', () => {
+        const container = document.getElementById('steps-container');
+        const count = container.children.length + 1;
+        const row = document.createElement('div');
+        row.className = 'step-row';
+        row.innerHTML = `
+            <input type="text" class="step-name" placeholder="Step ${count} Name">
+            <input type="text" class="step-pattern" placeholder="Regex Pattern">
+            <button class="remove-step">✕</button>
+        `;
+        container.appendChild(row);
+    });
+
+    // Remove Step
+    document.getElementById('steps-container').addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-step')) {
+            const row = e.target.closest('.step-row');
+            if (document.querySelectorAll('.step-row').length > 1) {
+                row.remove();
+            }
+        }
+    });
+
+    // Save Funnel
+    document.getElementById('save-funnel-btn').addEventListener('click', async () => {
+        const name = document.getElementById('funnel-name').value;
+        const domain = document.getElementById('funnel-domain-input').value;
+        if (!name) {
+            alert('Please enter a funnel name');
+            return;
+        }
+
+        const steps = [];
+        document.querySelectorAll('.step-row').forEach(row => {
+            const stepName = row.querySelector('.step-name').value;
+            const stepPattern = row.querySelector('.step-pattern').value;
+            if (stepName && stepPattern) {
+                steps.push({ name: stepName, pattern: stepPattern });
+            }
+        });
+
+        if (steps.length === 0) {
+            alert('Please add at least one valid step');
+            return;
+        }
+
+        try {
+            const res = await fetch('/funnels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, domain, steps })
+            });
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to save funnel');
+            }
+        } catch (err) {
+            alert('Error saving funnel');
+        }
+    });
+
+    // Delete Funnel
+    document.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            if (confirm('Are you sure you want to delete this funnel?')) {
+                try {
+                    const res = await fetch(`/funnels/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        window.location.reload();
+                    }
+                } catch (err) {
+                    alert('Error deleting funnel');
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

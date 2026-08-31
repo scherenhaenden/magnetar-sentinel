@@ -1,0 +1,93 @@
+{% extends "_base.html" %}
+{% block title %}Error - Magnetar Sentinel{% endblock %}
+{% block page_title %}Error{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 60vh;
+        text-align: center;
+    }
+    .error-emoji {
+        font-size: 5rem;
+        margin-bottom: 20px;
+    }
+    .error-title {
+        font-size: 1.5rem;
+        color: var(--accent);
+        margin-bottom: 10px;
+    }
+    .error-message {
+        color: var(--muted);
+        margin-bottom: 30px;
+        max-width: 600px;
+    }
+    .error-actions {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    details {
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 20px;
+        width: 100%;
+        max-width: 800px;
+        text-align: left;
+    }
+    summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-weight: bold;
+    }
+    pre {
+        color: var(--accent);
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        overflow-x: auto;
+        margin-top: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-emoji">🛰️❌</div>
+    <div class="error-title">{{ error_title | default("Something went wrong") }}</div>
+    <div class="error-message">{{ error_message | default("An unexpected error occurred while processing your request.") }}</div>
+    
+    <div class="error-actions">
+        <a href="javascript:history.back()" class="btn">Try again</a>
+        <button id="error-sync-btn" class="btn-primary">Sync Now</button>
+    </div>
+
+    {% if error_detail %}
+    <details>
+        <summary>View Stack Trace</summary>
+        <pre>{{ error_detail }}</pre>
+    </details>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('error-sync-btn').addEventListener('click', async (e) => {
+        const btn = e.target;
+        btn.textContent = 'Syncing...';
+        btn.disabled = true;
+        try {
+            await fetch('/api/sync/now', { method: 'POST' });
+            window.location.href = '/dashboard';
+        } catch (err) {
+            btn.textContent = 'Error';
+            setTimeout(() => { btn.textContent = 'Sync Now'; btn.disabled = false; }, 2000);
+        }
+    });
+</script>
+{% endblock %}

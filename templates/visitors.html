@@ -1,0 +1,157 @@
+{% extends "_base.html" %}
+{% block title %}Visitors - Magnetar Sentinel{% endblock %}
+{% block page_title %}Visitors & Audience Sessions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+    .filter-btn {
+        padding: 5px 14px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+    .filter-btn.active {
+        background: var(--accent2);
+        border-color: var(--accent2);
+        color: #fff;
+        font-weight: 600;
+    }
+    .badge-bot {
+        background: rgba(245,166,35,0.15);
+        color: var(--orange);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .badge-human {
+        background: rgba(62,207,142,0.15);
+        color: var(--green);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="filter-bar">
+        <a href="?type=all{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">Todos los Visitantes</a>
+        <a href="?type=human{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'human' %}active{% endif %}">👤 Humanos</a>
+        <a href="?type=bot{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'bot' %}active{% endif %}">🤖 Bots & Crawlers</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Dirección IP</th>
+                <th>Tipo</th>
+                <th>Ubicación</th>
+                <th style="text-align:right;">Sesiones</th>
+                <th style="text-align:right;">Hits</th>
+                <th>Primera Visita</th>
+                <th>Última Visita</th>
+                <th>Último Recurso</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in visitors %}
+            <tr>
+                <td class="mono" style="color:var(--accent2); font-weight:600;">
+                    {{ v.ip }}
+                    {% if v.is_banned %}
+                    <span style="background:rgba(224,64,96,0.25); color:var(--accent); font-size:0.72rem; padding:2px 6px; border-radius:4px; margin-left:6px;">🚫 BANNED</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if v.is_banned %}
+                    <span class="badge-bot" style="background:rgba(224,64,96,0.2); color:var(--accent);">Blocked</span>
+                    {% elif v.is_bot %}
+                    <span class="badge-bot">Bot</span>
+                    {% else %}
+                    <span class="badge-human">Human</span>
+                    {% endif %}
+                </td>
+                <td>{{ v.country }} <span style="color:var(--muted); font-size:0.78rem">({{ v.country_code }})</span></td>
+                <td style="text-align:right;" class="mono">{{ v.total_sessions }}</td>
+                <td style="text-align:right;" class="mono">{{ v.total_hits }}</td>
+                <td class="mono" style="font-size:0.8rem; color:var(--muted)">{{ v.first_seen }}</td>
+                <td class="mono" style="font-size:0.8rem; color:var(--text)">{{ v.last_seen }}</td>
+                <td class="mono" style="font-size:0.82rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ v.last_path }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" style="text-align:center; color:var(--muted); padding:30px;">No visitors found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

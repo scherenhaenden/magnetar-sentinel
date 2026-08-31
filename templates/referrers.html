@@ -1,0 +1,295 @@
+{% extends "_base.html" %}
+{% block title %}Referrers Report - Magnetar Sentinel{% endblock %}
+{% block page_title %}Referrers & Acquisition Channels{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+
+    .report-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    @media(max-width: 990px) {
+        .report-grid { grid-template-columns: 1fr; }
+    }
+
+    .subtab-header {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+    .subtab-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.84rem;
+        cursor: pointer;
+    }
+    .subtab-btn.active {
+        background: var(--accent2);
+        border-color: var(--accent2);
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .clickable-row {
+        cursor: pointer;
+        transition: background-color 0.15s;
+    }
+    .clickable-row:hover {
+        background-color: rgba(58, 143, 232, 0.15);
+    }
+    .bar-bg {
+        background: rgba(255,255,255,0.06);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .bar-fill {
+        background: var(--accent2);
+        height: 100%;
+        border-radius: 3px;
+    }
+
+    /* Live detail panel */
+    #detail-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="report-grid">
+    <!-- Left: Referrers List -->
+    <div class="card">
+        <div class="subtab-header">
+            <button class="subtab-btn active" id="btn-domains" onclick="switchMainTab('domains')">🌐 Por Dominios</button>
+            <button class="subtab-btn" id="btn-full" onclick="switchMainTab('full')">🔗 URLs Completas</button>
+            <button class="subtab-btn" id="btn-keywords" onclick="switchMainTab('keywords')">🔍 Keywords / Búsquedas</button>
+        </div>
+
+        <!-- 1. Domains Table -->
+        <table id="tbl-domains">
+            <thead>
+                <tr><th>Dominio de Origen</th><th style="text-align:right; width:110px;">Hits</th></tr>
+            </thead>
+            <tbody>
+                {% set max_d = summary.domain_referrers[0].hits if summary.domain_referrers else 1 %}
+                {% for r in summary.domain_referrers %}
+                <tr class="clickable-row" onclick="inspectReferrer('{{ r.referer }}')">
+                    <td><strong style="color:var(--accent2)">{{ r.referer }}</strong></td>
+                    <td style="text-align:right;">
+                        <span class="mono">{{ r.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="width:{{ (r.hits/max_d*100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" style="text-align:center; color:var(--muted)">No referrers recorded</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- 2. Full URLs Table -->
+        <table id="tbl-full" style="display:none;">
+            <thead>
+                <tr><th>URL Completa / Subruta / UTM</th><th style="text-align:right; width:110px;">Hits</th></tr>
+            </thead>
+            <tbody>
+                {% set max_f = summary.full_referrers[0].hits if summary.full_referrers else 1 %}
+                {% for r in summary.full_referrers %}
+                <tr class="clickable-row" onclick="inspectReferrer('{{ r.referer }}')">
+                    <td class="mono" style="color:var(--accent2); font-size:0.8rem; word-break:break-all;">{{ r.referer }}</td>
+                    <td style="text-align:right;">
+                        <span class="mono">{{ r.hits }}</span>
+                        <div class="bar-bg"><div class="bar-fill" style="background:var(--accent); width:{{ (r.hits/max_f*100)|int }}%"></div></div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" style="text-align:center; color:var(--muted)">No full URLs</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- 3. Keywords Table -->
+        <table id="tbl-keywords" style="display:none;">
+            <thead>
+                <tr><th>Término / Búsqueda Extraída</th><th>Buscador</th><th style="text-align:right; width:80px;">Hits</th></tr>
+            </thead>
+            <tbody>
+                {% for kw in summary.search_keywords %}
+                <tr class="clickable-row" onclick="inspectReferrer('{{ kw.keyword }}')">
+                    <td><strong style="color:var(--green)">"{{ kw.keyword }}"</strong></td>
+                    <td style="color:var(--muted); font-size:0.82rem;">{{ kw.source }}</td>
+                    <td style="text-align:right;" class="mono">{{ kw.hits }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" style="text-align:center; color:var(--muted)">No search keywords found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Right: De dónde hacia dónde (Destination & Origin breakdown) -->
+    <div id="detail-panel">
+        <h3 class="card-title" id="detail-title">🎯 Desglose de Tráfico: De dónde → Hacia dónde</h3>
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:15px;" id="detail-subtitle">
+            Haz clic en cualquier referrer de la izquierda para ver exactamente a qué artículos llegaron los usuarios y sus países de origen.
+        </p>
+        <div id="detail-content">
+            <div style="text-align:center; padding:50px 20px; color:var(--muted);">
+                👈 Selecciona un referrer para inspeccionar sus destinos y conversión.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const currentDays = {{ days }};
+    const currentDomainParam = '{{ raw_domain_param }}';
+
+    function switchMainTab(tab) {
+        ['domains', 'full', 'keywords'].forEach(t => {
+            const btn = document.getElementById(`btn-${t}`);
+            const tbl = document.getElementById(`tbl-${t}`);
+            if (t === tab) {
+                btn.classList.add('active');
+                tbl.style.display = 'table';
+            } else {
+                btn.classList.remove('active');
+                tbl.style.display = 'none';
+            }
+        });
+    }
+
+    async function inspectReferrer(refUrl) {
+        const titleEl = document.getElementById('detail-title');
+        const subEl = document.getElementById('detail-subtitle');
+        const contEl = document.getElementById('detail-content');
+
+        titleEl.innerHTML = `🎯 Destinos desde: <span class="mono" style="color:var(--accent2)">${refUrl}</span>`;
+        subEl.textContent = 'Páginas y artículos visitados por usuarios procedentes de este origen:';
+        contEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--muted)">Cargando métricas de destino...</div>`;
+
+        try {
+            const res = await fetch(`/api/drilldown/referrer?referer=${encodeURIComponent(refUrl)}&days=${currentDays}&domain=${encodeURIComponent(currentDomainParam)}`);
+            const data = await res.json();
+            
+            if (!data.from_to_pages || data.from_to_pages.length === 0) {
+                contEl.innerHTML = `<p style="color:var(--muted); text-align:center; padding:30px;">No se registraron páginas de destino en el periodo.</p>`;
+                return;
+            }
+
+            let html = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:0.85rem; color:var(--muted)">
+                    <span>Total Hits: <strong style="color:var(--text)">${data.total_hits}</strong></span>
+                    <span>Visitantes Únicos: <strong style="color:var(--text)">${data.unique_ips}</strong></span>
+                </div>
+                <table>
+                    <thead>
+                        <tr><th>Página / Artículo de Destino</th><th style="text-align:right; width:130px;">Hits & Tráfico</th></tr>
+                    </thead>
+                    <tbody>
+            `;
+            data.from_to_pages.forEach(p => {
+                html += `
+                    <tr>
+                        <td class="mono" style="color:var(--accent2); font-size:0.85rem; word-break:break-all;">${p.target_path}</td>
+                        <td style="text-align:right;">
+                            <span class="mono">${p.hits} (${p.pct}%)</span>
+                            <div class="bar-bg"><div class="bar-fill" style="width:${p.pct}%"></div></div>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+
+            if (data.top_countries && data.top_countries.length > 0) {
+                html += `<h4 style="margin:25px 0 10px 0; font-size:0.88rem; color:var(--muted); text-transform:uppercase;">🌍 Países de Origen</h4><table><thead><tr><th>País</th><th style="text-align:right;">Visitantes</th></tr></thead><tbody>`;
+                data.top_countries.forEach(c => {
+                    html += `<tr><td>${c.country} (${c.country_code})</td><td style="text-align:right;" class="mono">${c.count}</td></tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+
+            contEl.innerHTML = html;
+        } catch (err) {
+            contEl.innerHTML = `<div style="color:var(--accent); text-align:center;">Error al cargar datos.</div>`;
+        }
+    }
+
+    // Auto-inspect first referrer on load
+    {% if summary.domain_referrers %}
+    inspectReferrer('{{ summary.domain_referrers[0].referer }}');
+    {% endif %}
+</script>
+{% endblock %}

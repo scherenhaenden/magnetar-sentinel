@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Magnetar Sentinel{% endblock %}</title>
+    <style>
+        :root {
+          --bg:       #0e0f14;
+          --surface:  #16181f;
+          --border:   #252830;
+          --accent:   #e04060;
+          --accent2:  #3a8fe8;
+          --text:     #d4d6e0;
+          --muted:    #6b6e7a;
+          --green:    #3ecf8e;
+          --orange:   #f5a623;
+          --radius:   8px;
+          --mono:     'JetBrains Mono', 'Fira Mono', monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        a {
+            color: var(--accent2);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .sidebar {
+            width: 220px;
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            padding: 20px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .nav-links {
+            list-style: none;
+            padding: 10px 0;
+            margin: 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .nav-links li {
+            margin: 2px 10px;
+        }
+
+        .nav-links a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            color: var(--text);
+            text-decoration: none;
+            border-radius: var(--radius);
+            font-size: 0.88rem;
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        .nav-links a:hover {
+            background-color: rgba(255,255,255,0.05);
+            color: var(--accent2);
+            text-decoration: none;
+        }
+
+        .nav-links a.active {
+            background-color: rgba(58, 143, 232, 0.15);
+            color: var(--accent2);
+            font-weight: 600;
+        }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-bar {
+            height: 60px;
+            background-color: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            flex-shrink: 0;
+            gap: 15px;
+        }
+
+        .page-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .domain-select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .domain-select:hover, .domain-select:focus {
+            border-color: var(--accent2);
+            box-shadow: 0 0 6px rgba(58, 143, 232, 0.3);
+        }
+
+        .sync-status {
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .sync-badge {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .sync-badge.synced { background-color: var(--green); box-shadow: 0 0 6px var(--green); }
+        .sync-badge.error { background-color: var(--accent); }
+        .sync-badge.syncing { background-color: var(--orange); }
+
+        .content-area {
+            padding: 25px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            margin-top: 0;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+
+        button, .btn {
+            background-color: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 7px 14px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.88rem;
+            transition: all 0.15s;
+        }
+        
+        button:hover, .btn:hover {
+            border-color: var(--muted);
+            background-color: rgba(255,255,255,0.06);
+        }
+
+        .btn-primary {
+            background-color: var(--accent2);
+            border-color: var(--accent2);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background-color: #2d79cc;
+            border-color: #2d79cc;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .mono {
+            font-family: var(--mono);
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">
+            <span>🛰️</span> Magnetar Sentinel
+        </div>
+        <ul class="nav-links">
+            <li><a href="/dashboard" id="nav-dashboard">📊 Dashboard</a></li>
+            <li><a href="/security" id="nav-security">🛡️ Security Shield</a></li>
+            <li><a href="/pages" id="nav-pages">📰 Pages & Articles</a></li>
+            <li><a href="/referrers" id="nav-referrers">🔗 Referrers (Origins)</a></li>
+            <li><a href="/countries" id="nav-countries">🌍 Countries & Cities</a></li>
+            <li><a href="/visitors" id="nav-visitors">👥 Visitors (Sessions)</a></li>
+            <li><a href="/journey" id="nav-journey">🗺️ User Journey</a></li>
+            <li><a href="/retention" id="nav-retention">🔄 Retention Matrix</a></li>
+            <li><a href="/cohorts" id="nav-cohorts">👥 Cohorts</a></li>
+            <li><a href="/funnels" id="nav-funnels">🎯 Funnels</a></li>
+            <li><a href="/events" id="nav-events">⚡ Events Stream</a></li>
+            <li><a href="/settings" id="nav-settings">⚙️ Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            Magnetar Sentinel v0.3.0
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="top-bar">
+            <div style="display: flex; align-items: center; gap: 18px;">
+                <div class="page-title">{% block page_title %}Magnetar Sentinel{% endblock %}</div>
+                <div class="domain-selector-wrapper">
+                    <select id="domain-select" class="domain-select" onchange="switchDomain(this.value)">
+                        <option value="all" {% if is_all_domains %}selected{% endif %}>🌐 Todos los Dominios (All)</option>
+                        {% for d in available_domains %}
+                        <option value="{{ d }}" {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="sync-status" id="global-sync-status">
+                <span class="sync-badge synced"></span>
+                <span>Last sync: {% if last_sync and last_sync.last_sync_at %}{{ last_sync.last_sync_at }}{% else %}Ready{% endif %}</span>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script>
+        // Switch domain dropdown and reload with clean parameters
+        function switchDomain(dom) {
+            const url = new URL(window.location.href);
+            if (dom === 'all' || !dom || dom.trim() === '') {
+                url.searchParams.delete('domain');
+            } else {
+                url.searchParams.set('domain', dom.trim());
+            }
+            window.location.href = url.pathname + (url.search ? url.search : '');
+        }
+
+        // Highlight active nav item and preserve domain param in sidebar links
+        const currentPath = window.location.pathname;
+        const currentParams = new URLSearchParams(window.location.search);
+        const domainParam = currentParams.get('domain');
+
+        const navMap = {
+            '/': 'nav-dashboard',
+            '/dashboard': 'nav-dashboard',
+            '/security': 'nav-security',
+            '/pages': 'nav-pages',
+            '/referrers': 'nav-referrers',
+            '/countries': 'nav-countries',
+            '/visitors': 'nav-visitors',
+            '/journey': 'nav-journey',
+            '/retention': 'nav-retention',
+            '/cohorts': 'nav-cohorts',
+            '/funnels': 'nav-funnels',
+            '/events': 'nav-events',
+            '/settings': 'nav-settings'
+        };
+        const activeId = navMap[currentPath] || 'nav-dashboard';
+        const el = document.getElementById(activeId);
+        if (el) el.classList.add('active');
+
+        // Propagate domain param to sidebar links when a domain filter is active
+        if (domainParam && domainParam !== 'all') {
+            document.querySelectorAll('.nav-links a').forEach(a => {
+                const u = new URL(a.href, window.location.origin);
+                u.searchParams.set('domain', domainParam);
+                a.href = u.pathname + u.search;
+            });
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

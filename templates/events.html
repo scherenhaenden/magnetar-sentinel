@@ -1,0 +1,165 @@
+{% extends "_base.html" %}
+{% block title %}Events - Magnetar Sentinel{% endblock %}
+{% block page_title %}Events{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .filter-btn {
+        padding: 5px 12px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.15s;
+    }
+    .filter-btn:hover {
+        border-color: var(--muted);
+        text-decoration: none;
+    }
+    .filter-btn.active {
+        background-color: var(--accent2);
+        border-color: var(--accent2);
+        color: #fff;
+        font-weight: 600;
+    }
+    .badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-article_read { background-color: rgba(62, 207, 142, 0.2); color: var(--green); }
+    .badge-home_visit { background-color: rgba(58, 143, 232, 0.2); color: var(--accent2); }
+    .badge-search_referral { background-color: rgba(155, 89, 182, 0.2); color: #c39bd3; }
+    .badge-bot_probe { background-color: rgba(245, 166, 35, 0.2); color: var(--orange); }
+    .badge-404_error { background-color: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+    .badge-attack_probe { background-color: rgba(224, 64, 96, 0.2); color: var(--accent); }
+    
+    .event-table th { font-size: 0.82rem; }
+    .event-table td { font-size: 0.88rem; padding: 8px 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain selector chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="filter-bar">
+        <a href="?{% if not is_all_domains and raw_domain_param != 'all' %}domain={{ raw_domain_param }}{% endif %}" 
+           class="filter-btn {% if not active_filter %}active{% endif %}">
+           All ({{ event_counts.values()|sum }})
+        </a>
+        {% for et, icon in [('article_read', '📖'), ('home_visit', '🏠'), ('search_referral', '🔍'), ('bot_probe', '🤖'), ('404_error', '⚠️'), ('attack_probe', '🛡️')] %}
+        <a href="?type={{ et }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" 
+           class="filter-btn {% if active_filter == et %}active{% endif %}">
+           {{ icon }} {{ et }} ({{ event_counts.get(et, 0) }})
+        </a>
+        {% endfor %}
+    </div>
+
+    <table class="event-table">
+        <thead>
+            <tr>
+                <th>Time (UTC)</th>
+                <th>Domain</th>
+                <th>Event Type</th>
+                <th>IP Address</th>
+                <th>Resource / Path</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr>
+                <td class="mono" style="color:var(--muted); font-size:0.8rem; width:150px;">
+                    {{ e.occurred_at.strftime('%Y-%m-%d %H:%M:%S') if e.occurred_at else '' }}
+                </td>
+                <td style="font-size:0.82rem; color:var(--accent2); width:140px;">
+                    {{ e.domain or 'default' }}
+                </td>
+                <td style="width:140px;">
+                    <span class="badge badge-{{ e.event_type }}">{{ e.event_type }}</span>
+                </td>
+                <td class="mono" style="width:130px;">{{ e.ip }}</td>
+                <td class="mono" style="word-break: break-all;">
+                    {{ e.path }}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--muted); padding: 30px;">
+                    No events recorded for this selection.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

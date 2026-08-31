@@ -1,0 +1,144 @@
+{% extends "_base.html" %}
+{% block title %}User Journey - Magnetar Sentinel{% endblock %}
+{% block page_title %}User Journey{% endblock %}
+
+{% block extra_css %}
+<style>
+    .domain-chips-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+    }
+    .domain-chips-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .domain-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .domain-chip:hover {
+        border-color: var(--accent2);
+        color: #fff;
+    }
+    .domain-chip.active {
+        background: rgba(58, 143, 232, 0.18);
+        border-color: var(--accent2);
+        color: var(--accent2);
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(58, 143, 232, 0.25);
+    }
+    .journey-container {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+    .sankey-wrapper {
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        overflow-x: auto;
+    }
+    .sankey-svg {
+        width: 100%;
+        min-width: 600px;
+        height: 400px;
+    }
+    .path-arrow {
+        color: var(--muted);
+        margin: 0 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Domain Filter Chips -->
+<div class="domain-chips-bar">
+    <span class="domain-chips-label">🎯 Filter Domain:</span>
+    <div class="domain-chip {% if is_all_domains %}active{% endif %}" onclick="switchDomain('all')">
+        <span>🌐 All Domains</span>
+    </div>
+    {% for d in available_domains %}
+    <div class="domain-chip {% if not is_all_domains and selected_domains|length == 1 and selected_domains[0] == d %}active{% endif %}" 
+         onclick="switchDomain('{{ d }}')">
+        <span>
+            {% if 'rocka' in d %}🎸{% elif 'snippet' in d %}💻{% else %}🧪{% endif %}
+            {{ d }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="journey-container">
+    <div class="card">
+        <h3 class="card-title">User Flow (Top Transitions)</h3>
+        <div class="sankey-wrapper">
+            <svg class="sankey-svg" viewBox="0 0 800 400">
+                {% set max_count = transitions|map(attribute='count')|max if transitions else 1 %}
+                {% for t in transitions %}
+                    {% set y1 = 40 + loop.index0 * 28 %}
+                    {% set y2 = 40 + loop.index0 * 28 %}
+                    {% set opacity = 0.25 + (t.count / max_count) * 0.75 %}
+                    <path d="M 170 {{ y1 }} C 380 {{ y1 }}, 420 {{ y2 }}, 630 {{ y2 }}" 
+                          fill="none" stroke="var(--accent2)" stroke-width="{{ (t.count / max_count) * 16 + 2 }}" opacity="{{ opacity }}" />
+                    <text x="160" y="{{ y1 + 4 }}" text-anchor="end" fill="var(--text)" font-size="11" class="mono">{{ t.from_path[:35] }}</text>
+                    <text x="640" y="{{ y2 + 4 }}" text-anchor="start" fill="var(--text)" font-size="11" class="mono">{{ t.to_path[:35] }}</text>
+                    <text x="400" y="{{ y1 - 6 }}" text-anchor="middle" fill="var(--muted)" font-size="10" class="mono">{{ t.count }}</text>
+                {% else %}
+                    <text x="400" y="200" text-anchor="middle" fill="var(--muted)">No transition data for this domain.</text>
+                {% endfor %}
+            </svg>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title">Top 20 Session Paths</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Path Sequence</th>
+                    <th style="text-align: right">Sessions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in top_paths %}
+                <tr>
+                    <td>
+                        {% for step in p.path_sequence %}
+                            <span class="mono" style="color: var(--accent2)">{{ step }}</span>
+                            {% if not loop.last %}<span class="path-arrow">→</span>{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td style="text-align: right" class="mono">{{ p.count }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" style="text-align: center; color: var(--muted); padding: 20px;">No session paths found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends "_base.html" %}
+{% block title %}Security & Shield - Magnetar Sentinel{% endblock %}
+{% block page_title %}🛡️ Firewall Shield & Banned IPs{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .kpi-card {
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        text-align: center;
+    }
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: bold;
+        font-family: var(--mono);
+        color: var(--accent2);
+    }
+    .kpi-value.red { color: var(--accent); }
+    .kpi-value.green { color: var(--green); }
+    .kpi-label {
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 5px;
+    }
+
+    .jail-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .jail-chip {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+    }
+    .jail-chip-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--accent2);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .jail-chip-stats {
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.5;
+    }
+
+    .search-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 14px;
+        border-radius: var(--radius);
+        font-size: 0.88rem;
+        width: 250px;
+        margin-bottom: 15px;
+    }
+
+    .banned-badge {
+        background: rgba(224, 64, 96, 0.2);
+        color: var(--accent);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .btn-danger {
+        background: rgba(224, 64, 96, 0.2);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-danger:hover {
+        background: var(--accent);
+        color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Security KPIs -->
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-value green">{% if security.is_active %}ACTIVO{% else %}INACTIVO{% endif %}</div>
+        <div class="kpi-label">Estado del Firewall</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value red">{{ security.total_currently_banned }}</div>
+        <div class="kpi-label">IPs Bloqueadas Ahora</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value">{{ security.jails|length }}</div>
+        <div class="kpi-label">Jails en Vigilancia</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--text)">{{ security.total_all_time_banned }}</div>
+        <div class="kpi-label">Bloqueos Históricos</div>
+    </div>
+</div>
+
+<!-- Active Jails Grid -->
+<h3 class="card-title" style="margin-bottom:12px;">🔒 Jails de Fail2ban Configurados</h3>
+<div class="jail-card-grid">
+    {% for j in security.jails %}
+    <div class="jail-chip">
+        <div class="jail-chip-title">🛡️ {{ j.jail }}</div>
+        <div class="jail-chip-stats">
+            <div>Bloqueadas actualmente: <strong style="color:var(--accent)">{{ j.currently_banned }}</strong></div>
+            <div>Intentos fallidos recientes: <strong style="color:var(--text)">{{ j.currently_failed }}</strong></div>
+            <div>Total histórico: <strong style="color:var(--muted)">{{ j.total_banned }}</strong></div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Banned IPs Management Table -->
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+        <h3 class="card-title" style="margin:0;">🚫 Direcciones IP Bloqueadas en Tiempo Real</h3>
+        <input type="text" id="ip-filter" class="search-box" placeholder="🔍 Filtrar IP o Jail..." onkeyup="filterIpTable()">
+    </div>
+
+    <table id="banned-table">
+        <thead>
+            <tr>
+                <th>Dirección IP Bloqueada</th>
+                <th>Jail Responsable</th>
+                <th>Estado Firewall</th>
+                <th style="text-align:right; width:120px;">Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in security.banned_entries %}
+            <tr>
+                <td class="mono" style="color:var(--accent); font-weight:600;">{{ b.ip }}</td>
+                <td class="mono" style="font-size:0.85rem; color:var(--accent2)">{{ b.jail }}</td>
+                <td><span class="banned-badge">BANNED (nftables)</span></td>
+                <td style="text-align:right;">
+                    <button class="btn-danger" onclick="unbanIp('{{ b.jail }}', '{{ b.ip }}')">Desbanear</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align:center; color:var(--muted); padding:30px;">
+                    ✅ No hay IPs bloqueadas actualmente. El servidor está vigilando activamente.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Manual Ban Form -->
+    <div style="margin-top:25px; padding-top:18px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:0.85rem; color:var(--muted)">Bloqueo Manual Directo:</span>
+        <input type="text" id="manual-ip" placeholder="ej. 20.220.211.172" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius); font-family:var(--mono); font-size:0.85rem; width:180px;">
+        <select id="manual-jail" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius); font-size:0.85rem;">
+            <option value="nginx-botsearch">nginx-botsearch</option>
+            <option value="nginx-badbots">nginx-badbots</option>
+            <option value="recidive">recidive</option>
+            <option value="sshd">sshd</option>
+        </select>
+        <button class="btn-primary" onclick="manualBan()">🚫 Banear IP Ahora</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterIpTable() {
+        const query = document.getElementById('ip-filter').value.toLowerCase();
+        const rows = document.querySelectorAll('#banned-table tbody tr');
+        rows.forEach(r => {
+            const text = r.textContent.toLowerCase();
+            r.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+
+    async function unbanIp(jail, ip) {
+        if (!confirm(`¿Desbanear la IP ${ip} del jail ${jail}?`)) return;
+        try {
+            const res = await fetch('/api/security/unban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jail, ip })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                alert(`✅ IP ${ip} desbaneada.`);
+                window.location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        } catch (err) {
+            alert('Error de conexión al desbanear.');
+        }
+    }
+
+    async function manualBan() {
+        const ip = document.getElementById('manual-ip').value.trim();
+        const jail = document.getElementById('manual-jail').value;
+        if (!ip) {
+            alert('Introduce una IP válida.');
+            return;
+        }
+        if (!confirm(`¿Bloquear inmediatamente la IP ${ip} en ${jail}?`)) return;
+        try {
+            const res = await fetch('/api/security/ban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jail, ip })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                alert(`🚫 IP ${ip} bloqueada con éxito.`);
+                window.location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        } catch (err) {
+            alert('Error al banear.');
+        }
+    }
+</script>
+{% endblock %}

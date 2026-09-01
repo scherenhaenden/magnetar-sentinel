@@ -105,12 +105,13 @@
 
 <div class="card">
     <div class="filter-bar">
-        <a href="?type=all{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">Todos los Visitantes</a>
+        <a href="?type=all{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">Todos los Visitantes ({{ visitors|length }})</a>
         <a href="?type=human{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'human' %}active{% endif %}">👤 Humanos</a>
         <a href="?type=bot{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'bot' %}active{% endif %}">🤖 Bots & Crawlers</a>
+        <input type="text" id="visitors-search" placeholder="🔍 Filtrar IP, país, ruta..." style="margin-left:auto; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius); font-size:0.85rem; width:220px;" onkeyup="filterVisitorsTable()">
     </div>
 
-    <table>
+    <table id="visitors-table">
         <thead>
             <tr>
                 <th>Dirección IP</th>
@@ -159,5 +160,34 @@
             {% endfor %}
         </tbody>
     </table>
+    <div id="visitors-pagination-container"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let visitorsPaginator = null;
+
+    function initVisitorsPaginator() {
+        visitorsPaginator = new TablePaginator({
+            tableSelector: '#visitors-table',
+            containerSelector: '#visitors-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('visitors-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+    }
+
+    function filterVisitorsTable() {
+        if (visitorsPaginator) {
+            visitorsPaginator.currentPage = 1;
+            visitorsPaginator.update();
+        }
+    }
+
+    initVisitorsPaginator();
+</script>
 {% endblock %}

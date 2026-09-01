@@ -270,6 +270,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="visitors-pagination-container"></div>
     </div>
 
     <!-- 2. Flujo Completo de Hits -->
@@ -316,12 +317,40 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="hits-pagination-container"></div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    let visitorsPaginator = null;
+    let hitsPaginator = null;
+
+    function initPagePaginators() {
+        visitorsPaginator = new TablePaginator({
+            tableSelector: '#visitors-table',
+            containerSelector: '#visitors-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('route-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+
+        hitsPaginator = new TablePaginator({
+            tableSelector: '#hits-stream-table',
+            containerSelector: '#hits-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('route-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+    }
+
     function switchRouteTab(tab) {
         const btnV = document.getElementById('btn-tab-visitors');
         const btnH = document.getElementById('btn-tab-hits');
@@ -333,30 +362,27 @@
             btnH.classList.remove('active');
             contV.style.display = 'block';
             contH.style.display = 'none';
+            if (visitorsPaginator) visitorsPaginator.update();
         } else {
             btnH.classList.add('active');
             btnV.classList.remove('active');
             contH.style.display = 'block';
             contV.style.display = 'none';
+            if (hitsPaginator) hitsPaginator.update();
         }
     }
 
     function filterRouteTables() {
-        const query = document.getElementById('route-search').value.toLowerCase().trim();
-        
-        // Filter visitors table
-        const vRows = document.querySelectorAll('#visitors-table tbody tr');
-        vRows.forEach(r => {
-            const text = r.textContent.toLowerCase();
-            r.style.display = text.includes(query) ? '' : 'none';
-        });
-
-        // Filter hits stream table
-        const hRows = document.querySelectorAll('#hits-stream-table tbody tr');
-        hRows.forEach(r => {
-            const text = r.textContent.toLowerCase();
-            r.style.display = text.includes(query) ? '' : 'none';
-        });
+        if (visitorsPaginator) {
+            visitorsPaginator.currentPage = 1;
+            visitorsPaginator.update();
+        }
+        if (hitsPaginator) {
+            hitsPaginator.currentPage = 1;
+            hitsPaginator.update();
+        }
     }
+
+    initPagePaginators();
 </script>
 {% endblock %}

@@ -447,6 +447,7 @@
             {% endfor %}
         </tbody>
     </table>
+    <div id="hits-pagination-container"></div>
 </div>
 {% endblock %}
 
@@ -665,7 +666,6 @@
         const width = Math.abs(endX - dragStartX);
 
         if (width < 6) {
-            // Click with almost no drag -> reset brush
             resetTimeBrush();
             return;
         }
@@ -688,46 +688,53 @@
         filterHitsGrid();
     }
 
-    // ── Table Filtering ───────────────────────────────────────────────────
-    function filterHitsGrid() {
-        const query = document.getElementById('hits-search').value.toLowerCase().trim();
-        const statusVal = document.getElementById('status-filter').value;
-        const rows = document.querySelectorAll('#hits-tbody tr');
+    // ── Table Paginator & Filtering ───────────────────────────────────────
+    let hitsPaginator = null;
 
-        let visibleCount = 0;
-        rows.forEach(r => {
-            const epoch = parseInt(r.getAttribute('data-epoch') || '0', 10);
-            const status = r.getAttribute('data-status') || '';
-            const path = r.getAttribute('data-path') || '';
-            const ref = r.getAttribute('data-ref') || '';
+    function initHitsPaginator() {
+        hitsPaginator = new TablePaginator({
+            tableSelector: '#hits-table',
+            containerSelector: '#hits-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const epoch = parseInt(row.getAttribute('data-epoch') || '0', 10);
+                const status = row.getAttribute('data-status') || '';
+                const path = row.getAttribute('data-path') || '';
+                const ref = row.getAttribute('data-ref') || '';
+                const query = document.getElementById('hits-search').value.toLowerCase().trim();
+                const statusVal = document.getElementById('status-filter').value;
 
-            let passTime = true;
-            if (selectedRange) {
-                passTime = (epoch >= selectedRange.startEpoch && epoch <= selectedRange.endEpoch);
-            }
+                let passTime = true;
+                if (selectedRange) {
+                    passTime = (epoch >= selectedRange.startEpoch && epoch <= selectedRange.endEpoch);
+                }
 
-            let passStatus = true;
-            if (statusVal !== 'all') {
-                passStatus = status.startsWith(statusVal);
-            }
+                let passStatus = true;
+                if (statusVal !== 'all') {
+                    passStatus = status.startsWith(statusVal);
+                }
 
-            let passQuery = true;
-            if (query) {
-                passQuery = path.includes(query) || ref.includes(query) || status.includes(query);
-            }
+                let passQuery = true;
+                if (query) {
+                    passQuery = path.includes(query) || ref.includes(query) || status.includes(query);
+                }
 
-            if (passTime && passStatus && passQuery) {
-                r.style.display = '';
-                visibleCount++;
-            } else {
-                r.style.display = 'none';
+                return passTime && passStatus && passQuery;
+            },
+            onPageChange: (info) => {
+                document.getElementById('visible-hits-count').textContent = info.total;
             }
         });
+    }
 
-        document.getElementById('visible-hits-count').textContent = visibleCount;
+    function filterHitsGrid() {
+        if (!hitsPaginator) return;
+        hitsPaginator.currentPage = 1;
+        hitsPaginator.update();
 
+        const matchingCount = hitsPaginator.getMatchingRows().length;
         if (selectedRange) {
-            brushStatusText.innerHTML = `Filtrado activo: <strong>${visibleCount}</strong> de ${totalHitsCount} hits en el intervalo seleccionado.`;
+            brushStatusText.innerHTML = `Filtrado activo: <strong>${matchingCount}</strong> de ${totalHitsCount} hits en el intervalo seleccionado.`;
             brushTimeRange.textContent = `${formatEpochFull(selectedRange.startEpoch)} → ${formatEpochFull(selectedRange.endEpoch)}`;
         } else {
             brushStatusText.innerHTML = `Mostrando todos los <strong>${totalHitsCount}</strong> hits registrados.`;
@@ -741,5 +748,6 @@
     });
 
     initTimeline();
+    initHitsPaginator();
 </script>
 {% endblock %}

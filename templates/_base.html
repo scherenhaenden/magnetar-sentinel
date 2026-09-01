@@ -242,6 +242,76 @@
             font-family: var(--mono);
         }
 
+        /* Pagination Component Styles */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .pagination-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .page-size-selector select, .pg-size-select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 3px 8px;
+            border-radius: var(--radius);
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+        .pagination-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .page-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 10px;
+            border-radius: var(--radius);
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 30px;
+        }
+        .page-btn:hover:not(:disabled) {
+            border-color: var(--accent2);
+            color: #fff;
+            background: rgba(58, 143, 232, 0.15);
+        }
+        .page-btn.active {
+            background: var(--accent2);
+            border-color: var(--accent2);
+            color: #fff;
+            font-weight: 700;
+        }
+        .page-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .pg-numbers {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
         {% block extra_css %}{% endblock %}
     </style>
 </head>
@@ -336,6 +406,155 @@
                 u.searchParams.set('domain', domainParam);
                 a.href = u.pathname + u.search;
             });
+        }
+
+        // Universal Client-side Table Paginator Component
+        class TablePaginator {
+            constructor(options) {
+                this.tableSelector = options.tableSelector;
+                this.containerSelector = options.containerSelector;
+                this.pageSize = options.pageSize || 25;
+                this.currentPage = 1;
+                this.customFilter = options.customFilter || null;
+                this.onPageChange = options.onPageChange || null;
+                this.init();
+            }
+
+            init() {
+                this.container = document.querySelector(this.containerSelector);
+                if (!this.container) return;
+                this.renderControls();
+                this.update();
+            }
+
+            renderControls() {
+                this.container.innerHTML = `
+                    <div class="pagination-bar">
+                        <div class="pagination-info">
+                            <span class="pagination-summary">Mostrando <strong class="pg-start">0</strong>-<strong class="pg-end">0</strong> de <strong class="pg-total">0</strong></span>
+                            <div class="page-size-selector">
+                                <span>Mostrar:</span>
+                                <select class="pg-size-select">
+                                    <option value="10" ${this.pageSize === 10 ? 'selected' : ''}>10</option>
+                                    <option value="25" ${this.pageSize === 25 ? 'selected' : ''}>25</option>
+                                    <option value="50" ${this.pageSize === 50 ? 'selected' : ''}>50</option>
+                                    <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
+                                    <option value="all" ${this.pageSize === 'all' ? 'selected' : ''}>Todos</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pagination-nav">
+                            <button class="page-btn pg-btn-first" title="Primera página">«</button>
+                            <button class="page-btn pg-btn-prev" title="Página anterior">‹</button>
+                            <span class="pg-numbers"></span>
+                            <button class="page-btn pg-btn-next" title="Página siguiente">›</button>
+                            <button class="page-btn pg-btn-last" title="Última página">»</button>
+                        </div>
+                    </div>
+                `;
+
+                this.container.querySelector('.pg-size-select').addEventListener('change', (e) => {
+                    this.pageSize = e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10);
+                    this.currentPage = 1;
+                    this.update();
+                });
+
+                this.container.querySelector('.pg-btn-first').addEventListener('click', () => this.goToPage(1));
+                this.container.querySelector('.pg-btn-prev').addEventListener('click', () => this.goToPage(this.currentPage - 1));
+                this.container.querySelector('.pg-btn-next').addEventListener('click', () => this.goToPage(this.currentPage + 1));
+                this.container.querySelector('.pg-btn-last').addEventListener('click', () => this.goToPage(this.totalPages));
+            }
+
+            getRows() {
+                const tbody = document.querySelector(`${this.tableSelector} tbody`);
+                if (!tbody) return [];
+                return Array.from(tbody.querySelectorAll('tr'));
+            }
+
+            getMatchingRows() {
+                const rows = this.getRows();
+                if (!this.customFilter) return rows;
+                return rows.filter(row => this.customFilter(row));
+            }
+
+            update() {
+                if (!this.container) return;
+                const matching = this.getMatchingRows();
+                const total = matching.length;
+                const limit = this.pageSize === 'all' ? (total || 1) : this.pageSize;
+                this.totalPages = Math.max(1, Math.ceil(total / limit));
+
+                if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
+                if (this.currentPage < 1) this.currentPage = 1;
+
+                const startIdx = total === 0 ? 0 : (this.currentPage - 1) * limit;
+                const endIdx = this.pageSize === 'all' ? total : Math.min(startIdx + limit, total);
+
+                const allRows = this.getRows();
+                allRows.forEach(r => r.style.display = 'none');
+
+                matching.slice(startIdx, endIdx).forEach(r => r.style.display = '');
+
+                this.container.querySelector('.pg-start').textContent = total === 0 ? 0 : (startIdx + 1);
+                this.container.querySelector('.pg-end').textContent = endIdx;
+                this.container.querySelector('.pg-total').textContent = total;
+
+                this.container.querySelector('.pg-btn-first').disabled = (this.currentPage === 1 || total === 0);
+                this.container.querySelector('.pg-btn-prev').disabled = (this.currentPage === 1 || total === 0);
+                this.container.querySelector('.pg-btn-next').disabled = (this.currentPage === this.totalPages || total === 0);
+                this.container.querySelector('.pg-btn-last').disabled = (this.currentPage === this.totalPages || total === 0);
+
+                const numbersContainer = this.container.querySelector('.pg-numbers');
+                numbersContainer.innerHTML = '';
+
+                if (this.totalPages <= 7) {
+                    for (let i = 1; i <= this.totalPages; i++) {
+                        this.addPageBtn(numbersContainer, i);
+                    }
+                } else {
+                    this.addPageBtn(numbersContainer, 1);
+                    if (this.currentPage > 3) {
+                        const el = document.createElement('span');
+                        el.textContent = '...';
+                        el.style.padding = '0 4px';
+                        el.style.color = 'var(--muted)';
+                        numbersContainer.appendChild(el);
+                    }
+
+                    const startP = Math.max(2, this.currentPage - 1);
+                    const endP = Math.min(this.totalPages - 1, this.currentPage + 1);
+                    for (let i = startP; i <= endP; i++) {
+                        this.addPageBtn(numbersContainer, i);
+                    }
+
+                    if (this.currentPage < this.totalPages - 2) {
+                        const el = document.createElement('span');
+                        el.textContent = '...';
+                        el.style.padding = '0 4px';
+                        el.style.color = 'var(--muted)';
+                        numbersContainer.appendChild(el);
+                    }
+                    this.addPageBtn(numbersContainer, this.totalPages);
+                }
+
+                if (this.onPageChange) {
+                    this.onPageChange({ total, currentPage: this.currentPage, totalPages: this.totalPages });
+                }
+            }
+
+            addPageBtn(container, pageNum) {
+                const btn = document.createElement('button');
+                btn.className = `page-btn ${pageNum === this.currentPage ? 'active' : ''}`;
+                btn.textContent = pageNum;
+                btn.addEventListener('click', () => this.goToPage(pageNum));
+                container.appendChild(btn);
+            }
+
+            goToPage(p) {
+                if (p < 1 || p > this.totalPages || p === this.currentPage) return;
+                this.currentPage = p;
+                this.update();
+            }
         }
     </script>
     {% block extra_js %}{% endblock %}

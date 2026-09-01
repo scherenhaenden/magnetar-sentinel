@@ -509,7 +509,9 @@
                 {% for a in summary.top_articles[:12] %}
                 <tr>
                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        <span class="mono">{{ a.path }}</span>
+                        <a href="/pages/detail?path={{ a.path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="mono" style="color:var(--accent2); text-decoration:none;">
+                            {{ a.path }}
+                        </a>
                     </td>
                     <td style="text-align: right; width: 90px;">
                         <span class="mono">{{ a.hits }}</span>
@@ -531,7 +533,9 @@
                 {% for v in summary.top_visitors[:12] %}
                 <tr>
                     <td>
-                        <span class="mono">{{ v.ip }}</span>
+                        <a href="/visitors/{{ v.ip }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="mono" style="color:var(--accent2); text-decoration:none; font-weight:600;">
+                            {{ v.ip }}
+                        </a>
                         {% if v.is_bot %}
                         <span class="badge-bot">Bot</span>
                         {% else %}

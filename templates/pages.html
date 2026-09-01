@@ -98,8 +98,10 @@
             {% set max_h = pages_data[0].hits if pages_data else 1 %}
             {% for p in pages_data %}
             <tr>
-                <td class="mono" style="color:var(--accent2); word-break:break-all;">
-                    {{ p.path }}
+                <td class="mono" style="word-break:break-all;">
+                    <a href="/pages/detail?path={{ p.path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" style="color:var(--accent2); text-decoration:none; font-weight:500;">
+                        {{ p.path }}
+                    </a>
                     {% if p.top_referrers %}
                     <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">
                         Top origen: <span style="color:var(--text)">{{ p.top_referrers[0] }}</span>

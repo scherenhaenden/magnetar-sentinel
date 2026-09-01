@@ -151,7 +151,11 @@
         <tbody>
             {% for b in security.banned_entries %}
             <tr>
-                <td class="mono" style="color:var(--accent); font-weight:600;">{{ b.ip }}</td>
+                <td class="mono" style="font-weight:600;">
+                    <a href="/visitors/{{ b.ip }}" style="color:var(--accent); text-decoration:none;">
+                        {{ b.ip }}
+                    </a>
+                </td>
                 <td class="mono" style="font-size:0.85rem; color:var(--accent2)">{{ b.jail }}</td>
                 <td><span class="banned-badge">BANNED (nftables)</span></td>
                 <td style="text-align:right;">

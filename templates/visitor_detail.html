@@ -1,0 +1,745 @@
+{% extends "_base.html" %}
+{% block title %}Visitor {{ visitor.ip }} - Magnetar Sentinel{% endblock %}
+{% block page_title %}👤 Visitor Profile & Hit Breakdown{% endblock %}
+
+{% block extra_css %}
+<style>
+    .back-nav {
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.88rem;
+        padding: 5px 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        transition: all 0.15s;
+    }
+    .back-btn:hover {
+        color: var(--text);
+        border-color: var(--muted);
+        text-decoration: none;
+    }
+
+    /* Visitor Profile Header Card */
+    .profile-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+        margin-bottom: 20px;
+    }
+    .profile-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 16px;
+    }
+    .ip-headline {
+        font-size: 1.4rem;
+        font-weight: 700;
+        font-family: var(--mono);
+        color: var(--accent2);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .badge-banned {
+        background: rgba(224,64,96,0.25);
+        color: var(--accent);
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .badge-active {
+        background: rgba(62,207,142,0.2);
+        color: var(--green);
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .badge-bot {
+        background: rgba(245,166,35,0.18);
+        color: var(--orange);
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+    }
+    .badge-human {
+        background: rgba(62,207,142,0.18);
+        color: var(--green);
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+    }
+
+    .kpi-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+    }
+    .stat-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+    }
+    .stat-label {
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+    }
+    .stat-val {
+        font-size: 1.15rem;
+        font-weight: 700;
+        font-family: var(--mono);
+        color: var(--text);
+    }
+
+    /* Security Ban Action Controls */
+    .security-action-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .btn-unban {
+        background: rgba(62, 207, 142, 0.15);
+        border: 1px solid var(--green);
+        color: var(--green);
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-unban:hover {
+        background: var(--green);
+        color: #111;
+    }
+    .btn-ban-action {
+        background: rgba(224, 64, 96, 0.2);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-ban-action:hover {
+        background: var(--accent);
+        color: #fff;
+    }
+
+    /* Timeline Frequency Chart Container */
+    .chart-container-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .timeline-canvas-wrapper {
+        position: relative;
+        width: 100%;
+        height: 180px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        user-select: none;
+    }
+    #timeline-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: crosshair;
+    }
+    .brush-overlay {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: rgba(58, 143, 232, 0.25);
+        border-left: 2px solid var(--accent2);
+        border-right: 2px solid var(--accent2);
+        pointer-events: none;
+        display: none;
+    }
+    .brush-info-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.82rem;
+        margin-top: 10px;
+        color: var(--muted);
+    }
+    .btn-reset-zoom {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--accent2);
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.78rem;
+        cursor: pointer;
+    }
+    .btn-reset-zoom:hover {
+        background: rgba(58, 143, 232, 0.15);
+    }
+
+    /* Hits Grid / Table */
+    .grid-filter-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .search-input {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px 12px;
+        border-radius: var(--radius);
+        font-size: 0.85rem;
+        width: 240px;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .st-2xx { background: rgba(62, 207, 142, 0.2); color: var(--green); }
+    .st-3xx { background: rgba(58, 143, 232, 0.2); color: var(--accent2); }
+    .st-4xx { background: rgba(245, 166, 35, 0.2); color: var(--orange); }
+    .st-5xx { background: rgba(224, 64, 96, 0.25); color: var(--accent); }
+
+    .hits-table th {
+        font-size: 0.78rem;
+    }
+    .hits-table td {
+        font-size: 0.85rem;
+        padding: 8px 10px;
+    }
+    .route-link {
+        color: var(--accent2);
+        font-weight: 500;
+        text-decoration: none;
+    }
+    .route-link:hover {
+        text-decoration: underline;
+    }
+    .ua-cell {
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: 0.78rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div class="back-nav">
+    <a href="/visitors{% if not is_all_domains and raw_domain_param != 'all' %}?domain={{ raw_domain_param }}{% endif %}" class="back-btn">
+        ← Volver a Visitantes
+    </a>
+    <span style="color:var(--muted); font-size:0.85rem;">/</span>
+    <span class="mono" style="color:var(--text); font-size:0.88rem;">{{ visitor.ip }}</span>
+</div>
+
+<!-- Visitor Profile Card -->
+<div class="profile-card">
+    <div class="profile-header-top">
+        <div>
+            <div class="ip-headline">
+                <span>{{ visitor.ip }}</span>
+                {% if visitor.is_banned %}
+                <span class="badge-banned">🚫 BANNED {% if visitor.jail %}({{ visitor.jail }}){% endif %}</span>
+                {% else %}
+                <span class="badge-active">✅ ACTIVO / SAFE</span>
+                {% endif %}
+
+                {% if visitor.is_bot %}
+                <span class="badge-bot">🤖 Bot</span>
+                {% else %}
+                <span class="badge-human">👤 Human</span>
+                {% endif %}
+            </div>
+            <div style="margin-top:6px; color:var(--muted); font-size:0.88rem;">
+                📍 <strong>{{ visitor.country }}</strong> ({{ visitor.country_code }})
+                {% if visitor.city %}• {{ visitor.city }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Firewall Actions -->
+        <div class="security-action-bar">
+            {% if visitor.is_banned %}
+            <button class="btn-unban" onclick="unbanVisitor('{{ visitor.jail or "nginx-botsearch" }}', '{{ visitor.ip }}')">
+                🛡️ Desbanear en Firewall
+            </button>
+            {% else %}
+            <select id="ban-jail-select" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:var(--radius); font-size:0.82rem;">
+                {% for j in available_jails %}
+                <option value="{{ j }}">{{ j }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn-ban-action" onclick="banVisitor('{{ visitor.ip }}')">
+                🚫 Bloquear IP en Firewall
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="kpi-stats-grid">
+        <div class="stat-box">
+            <div class="stat-label">Total Hits</div>
+            <div class="stat-val" style="color:var(--accent2)">{{ "{:,}".format(visitor.total_hits) }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Sesiones</div>
+            <div class="stat-val">{{ visitor.total_sessions }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Primera Visita</div>
+            <div class="stat-val" style="font-size:0.85rem; color:var(--muted)">{{ visitor.first_seen }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Última Visita</div>
+            <div class="stat-val" style="font-size:0.85rem; color:var(--text)">{{ visitor.last_seen }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Última Ruta</div>
+            <div class="stat-val" style="font-size:0.82rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                <a href="/pages/detail?path={{ visitor.last_path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="route-link">
+                    {{ visitor.last_path }}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline Frequency Chart Card (with Drag & Drop Brush Selection) -->
+<div class="chart-container-card">
+    <div class="chart-header">
+        <h3 class="card-title" style="margin:0;">
+            📈 Frecuencia de Hits en el Tiempo
+            <small style="font-size:0.75rem; color:var(--accent2); text-transform:none; margin-left:8px;">
+                (Arrastra el cursor sobre el gráfico para seleccionar un rango temporal)
+            </small>
+        </h3>
+        <button id="btn-clear-brush" class="btn-reset-zoom" onclick="resetTimeBrush()" style="display:none;">
+            🔄 Restablecer Filtro Temporal
+        </button>
+    </div>
+
+    <div class="timeline-canvas-wrapper" id="canvas-wrapper">
+        <canvas id="timeline-canvas"></canvas>
+        <div id="brush-box" class="brush-overlay"></div>
+    </div>
+
+    <div class="brush-info-bar">
+        <span id="brush-status-text">Mostrando todos los <strong>{{ hits|length }}</strong> hits registrados.</span>
+        <span id="brush-time-range" class="mono" style="font-size:0.78rem; color:var(--muted);"></span>
+    </div>
+</div>
+
+<!-- Hits Breakdown Grid Table -->
+<div class="card">
+    <div class="grid-filter-bar">
+        <h3 class="card-title" style="margin:0;">📋 Desglose Detallado de Hits (<span id="visible-hits-count">{{ hits|length }}</span>)</h3>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="hits-search" class="search-input" placeholder="🔍 Filtrar por ruta, referer..." onkeyup="filterHitsGrid()">
+            <select id="status-filter" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:var(--radius); font-size:0.82rem;" onchange="filterHitsGrid()">
+                <option value="all">Todos los Códigos</option>
+                <option value="2">2xx Éxito</option>
+                <option value="3">3xx Redirección</option>
+                <option value="4">4xx No encontrado / Error</option>
+                <option value="5">5xx Error servidor</option>
+            </select>
+        </div>
+    </div>
+
+    <table class="hits-table" id="hits-table">
+        <thead>
+            <tr>
+                <th style="width:40px;">#</th>
+                <th style="width:160px;">Fecha y Hora (UTC)</th>
+                <th style="width:70px;">Método</th>
+                <th style="width:70px;">Estado</th>
+                <th>Ruta / Recurso Solicitado</th>
+                <th style="width:120px;">Dominio</th>
+                <th style="width:90px; text-align:right;">Bytes</th>
+                <th>Referer</th>
+                <th>User-Agent</th>
+            </tr>
+        </thead>
+        <tbody id="hits-tbody">
+            {% for h in hits %}
+            <tr data-epoch="{{ h.timestamp_epoch }}" data-status="{{ h.status }}" data-path="{{ h.path|lower }}" data-ref="{{ h.referer|lower }}">
+                <td style="color:var(--muted); font-size:0.75rem;">{{ loop.index }}</td>
+                <td class="mono" style="color:var(--muted); font-size:0.8rem; white-space:nowrap;">{{ h.occurred_at }}</td>
+                <td class="mono" style="font-weight:600; font-size:0.8rem;">{{ h.method }}</td>
+                <td>
+                    {% if h.status >= 200 and h.status < 300 %}
+                    <span class="status-badge st-2xx">{{ h.status }}</span>
+                    {% elif h.status >= 300 and h.status < 400 %}
+                    <span class="status-badge st-3xx">{{ h.status }}</span>
+                    {% elif h.status >= 400 and h.status < 500 %}
+                    <span class="status-badge st-4xx">{{ h.status }}</span>
+                    {% else %}
+                    <span class="status-badge st-5xx">{{ h.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="mono" style="word-break:break-all;">
+                    <a href="/pages/detail?path={{ h.path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="route-link">
+                        {{ h.path }}
+                    </a>
+                </td>
+                <td style="font-size:0.78rem; color:var(--muted)">{{ h.domain }}</td>
+                <td class="mono" style="text-align:right; font-size:0.8rem; color:var(--muted)">{{ h.bytes_sent }}</td>
+                <td class="mono" style="font-size:0.78rem; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted);" title="{{ h.referer }}">
+                    {{ h.referer }}
+                </td>
+                <td class="ua-cell" title="{{ h.user_agent }}">{{ h.user_agent }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" style="text-align:center; color:var(--muted); padding:30px;">No se encontraron hits registrados para esta IP.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const hitsData = {{ hits | tojson }};
+    const totalHitsCount = hitsData.length;
+
+    // Security ban / unban actions
+    async function unbanVisitor(jail, ip) {
+        if (!confirm(`¿Desbanear la IP ${ip} del jail ${jail}?`)) return;
+        try {
+            const res = await fetch('/api/security/unban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jail, ip })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                alert(`✅ IP ${ip} desbaneada del firewall.`);
+                window.location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        } catch (err) {
+            alert('Error de conexión al desbanear.');
+        }
+    }
+
+    async function banVisitor(ip) {
+        const jailSelect = document.getElementById('ban-jail-select');
+        const jail = jailSelect ? jailSelect.value : 'nginx-botsearch';
+        if (!confirm(`¿Bloquear inmediatamente la IP ${ip} en el jail ${jail}?`)) return;
+        try {
+            const res = await fetch('/api/security/ban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jail, ip })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                alert(`🚫 IP ${ip} bloqueada en ${jail}.`);
+                window.location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        } catch (err) {
+            alert('Error al banear.');
+        }
+    }
+
+    // ── Interactive Timeline Frequency Canvas & Brushing ───────────────────
+    const canvas = document.getElementById('timeline-canvas');
+    const wrapper = document.getElementById('canvas-wrapper');
+    const brushBox = document.getElementById('brush-box');
+    const btnClearBrush = document.getElementById('btn-clear-brush');
+    const brushStatusText = document.getElementById('brush-status-text');
+    const brushTimeRange = document.getElementById('brush-time-range');
+
+    let minEpoch = Infinity;
+    let maxEpoch = -Infinity;
+    let numBins = 40;
+    let bins = [];
+    let isDragging = false;
+    let dragStartX = 0;
+    let selectedRange = null; // { startEpoch, endEpoch }
+
+    function initTimeline() {
+        if (!hitsData || hitsData.length === 0) return;
+
+        hitsData.forEach(h => {
+            if (h.timestamp_epoch < minEpoch) minEpoch = h.timestamp_epoch;
+            if (h.timestamp_epoch > maxEpoch) maxEpoch = h.timestamp_epoch;
+        });
+
+        if (minEpoch === maxEpoch) {
+            minEpoch -= 60;
+            maxEpoch += 60;
+        }
+
+        buildBins();
+        drawTimeline();
+    }
+
+    function buildBins() {
+        bins = [];
+        const span = maxEpoch - minEpoch;
+        numBins = Math.min(60, Math.max(20, Math.floor(wrapper.clientWidth / 14)));
+        const binSize = span / numBins;
+
+        for (let i = 0; i < numBins; i++) {
+            bins.push({
+                start: minEpoch + i * binSize,
+                end: minEpoch + (i + 1) * binSize,
+                count: 0,
+                botCount: 0,
+                humanCount: 0,
+                errorCount: 0
+            });
+        }
+
+        hitsData.forEach(h => {
+            const ep = h.timestamp_epoch;
+            const idx = Math.min(numBins - 1, Math.max(0, Math.floor((ep - minEpoch) / (span || 1) * numBins)));
+            if (bins[idx]) {
+                bins[idx].count++;
+                if (h.is_bot) bins[idx].botCount++;
+                else bins[idx].humanCount++;
+                if (h.status >= 400) bins[idx].errorCount++;
+            }
+        });
+    }
+
+    function drawTimeline() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = wrapper.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        const w = rect.width;
+        const h = rect.height;
+        ctx.clearRect(0, 0, w, h);
+
+        if (!bins || bins.length === 0) return;
+
+        const maxCount = Math.max(...bins.map(b => b.count), 1);
+        const barWidth = Math.max(2, (w / bins.length) - 2);
+
+        // Draw background grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        for (let y = 1; y <= 3; y++) {
+            const yPos = (h - 25) * (y / 4);
+            ctx.beginPath();
+            ctx.moveTo(0, yPos);
+            ctx.lineTo(w, yPos);
+            ctx.stroke();
+        }
+
+        // Draw histogram bars
+        bins.forEach((b, i) => {
+            const x = (i / bins.length) * w + 1;
+            const barH = (b.count / maxCount) * (h - 40);
+            const y = h - 25 - barH;
+
+            // Check if in selected range
+            let isHighlight = true;
+            if (selectedRange) {
+                isHighlight = (b.end >= selectedRange.startEpoch && b.start <= selectedRange.endEpoch);
+            }
+
+            if (b.count > 0) {
+                // Color based on error or bot or human
+                if (b.errorCount > 0 && b.errorCount === b.count) {
+                    ctx.fillStyle = isHighlight ? 'rgba(245, 166, 35, 0.85)' : 'rgba(245, 166, 35, 0.25)';
+                } else if (b.botCount > 0) {
+                    ctx.fillStyle = isHighlight ? 'rgba(224, 64, 96, 0.85)' : 'rgba(224, 64, 96, 0.25)';
+                } else {
+                    ctx.fillStyle = isHighlight ? 'rgba(58, 143, 232, 0.85)' : 'rgba(58, 143, 232, 0.25)';
+                }
+
+                ctx.beginPath();
+                ctx.roundRect(x, y, barWidth, barH, [3, 3, 0, 0]);
+                ctx.fill();
+            }
+        });
+
+        // Time axis labels
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '10px monospace';
+        ctx.fillText(formatEpochTime(minEpoch), 8, h - 8);
+        const midEpoch = (minEpoch + maxEpoch) / 2;
+        ctx.fillText(formatEpochTime(midEpoch), w / 2 - 25, h - 8);
+        ctx.fillText(formatEpochTime(maxEpoch), w - 65, h - 8);
+    }
+
+    function formatEpochTime(ep) {
+        const d = new Date(ep * 1000);
+        return d.toISOString().substring(11, 16);
+    }
+
+    function formatEpochFull(ep) {
+        const d = new Date(ep * 1000);
+        return d.toISOString().replace('T', ' ').substring(0, 19);
+    }
+
+    // Brush Mouse Interactions
+    wrapper.addEventListener('mousedown', (e) => {
+        const rect = wrapper.getBoundingClientRect();
+        dragStartX = e.clientX - rect.left;
+        isDragging = true;
+        brushBox.style.display = 'block';
+        brushBox.style.left = `${dragStartX}px`;
+        brushBox.style.width = '0px';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = wrapper.getBoundingClientRect();
+        const curX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+        const left = Math.min(dragStartX, curX);
+        const width = Math.abs(curX - dragStartX);
+
+        brushBox.style.left = `${left}px`;
+        brushBox.style.width = `${width}px`;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        const rect = wrapper.getBoundingClientRect();
+        const endX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+        const left = Math.min(dragStartX, endX);
+        const width = Math.abs(endX - dragStartX);
+
+        if (width < 6) {
+            // Click with almost no drag -> reset brush
+            resetTimeBrush();
+            return;
+        }
+
+        const span = maxEpoch - minEpoch;
+        const startEpoch = minEpoch + (left / rect.width) * span;
+        const endEpoch = minEpoch + ((left + width) / rect.width) * span;
+
+        selectedRange = { startEpoch, endEpoch };
+        btnClearBrush.style.display = 'inline-block';
+        drawTimeline();
+        filterHitsGrid();
+    });
+
+    function resetTimeBrush() {
+        selectedRange = null;
+        brushBox.style.display = 'none';
+        btnClearBrush.style.display = 'none';
+        drawTimeline();
+        filterHitsGrid();
+    }
+
+    // ── Table Filtering ───────────────────────────────────────────────────
+    function filterHitsGrid() {
+        const query = document.getElementById('hits-search').value.toLowerCase().trim();
+        const statusVal = document.getElementById('status-filter').value;
+        const rows = document.querySelectorAll('#hits-tbody tr');
+
+        let visibleCount = 0;
+        rows.forEach(r => {
+            const epoch = parseInt(r.getAttribute('data-epoch') || '0', 10);
+            const status = r.getAttribute('data-status') || '';
+            const path = r.getAttribute('data-path') || '';
+            const ref = r.getAttribute('data-ref') || '';
+
+            let passTime = true;
+            if (selectedRange) {
+                passTime = (epoch >= selectedRange.startEpoch && epoch <= selectedRange.endEpoch);
+            }
+
+            let passStatus = true;
+            if (statusVal !== 'all') {
+                passStatus = status.startsWith(statusVal);
+            }
+
+            let passQuery = true;
+            if (query) {
+                passQuery = path.includes(query) || ref.includes(query) || status.includes(query);
+            }
+
+            if (passTime && passStatus && passQuery) {
+                r.style.display = '';
+                visibleCount++;
+            } else {
+                r.style.display = 'none';
+            }
+        });
+
+        document.getElementById('visible-hits-count').textContent = visibleCount;
+
+        if (selectedRange) {
+            brushStatusText.innerHTML = `Filtrado activo: <strong>${visibleCount}</strong> de ${totalHitsCount} hits en el intervalo seleccionado.`;
+            brushTimeRange.textContent = `${formatEpochFull(selectedRange.startEpoch)} → ${formatEpochFull(selectedRange.endEpoch)}`;
+        } else {
+            brushStatusText.innerHTML = `Mostrando todos los <strong>${totalHitsCount}</strong> hits registrados.`;
+            brushTimeRange.textContent = '';
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        buildBins();
+        drawTimeline();
+    });
+
+    initTimeline();
+</script>
+{% endblock %}

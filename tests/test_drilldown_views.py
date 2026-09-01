@@ -131,3 +131,26 @@ def test_pages_page_contains_detail_links(client):
     assert res.status_code == 200
     html = res.get_data(as_text=True)
     assert "/pages/detail?path=" in html
+
+
+def test_pagination_and_sorting_components_rendered(client):
+    headers = _auth_headers()
+    # Check visitors view has paginator and sorting engine
+    res = client.get("/visitors", headers=headers)
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "TablePaginator" in html
+    assert "makeTableSortable" in html
+    assert "visitors-pagination-container" in html
+
+    # Check visitor detail view has paginator and sorting
+    res2 = client.get("/visitors/4.204.224.164", headers=headers)
+    assert res2.status_code == 200
+    html2 = res2.get_data(as_text=True)
+    assert "hits-pagination-container" in html2
+
+    # Check pages view has paginator and sorting
+    res3 = client.get("/pages", headers=headers)
+    assert res3.status_code == 200
+    html3 = res3.get_data(as_text=True)
+    assert "pages-pagination-container" in html3

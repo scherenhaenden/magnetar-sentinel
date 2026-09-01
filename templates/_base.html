@@ -306,10 +306,42 @@
             opacity: 0.35;
             cursor: not-allowed;
         }
-        .pg-numbers {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
+        /* Sortable Table Header Styles */
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 18px;
+            transition: color 0.15s, background-color 0.15s;
+        }
+        th.sortable:hover {
+            color: var(--accent2);
+            background-color: rgba(255,255,255,0.02);
+        }
+        th.sortable::after {
+            content: ' ↕';
+            font-size: 0.72rem;
+            opacity: 0.35;
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        th.sortable.sort-asc {
+            color: var(--accent2);
+        }
+        th.sortable.sort-asc::after {
+            content: ' ▲';
+            opacity: 1;
+            color: var(--accent2);
+        }
+        th.sortable.sort-desc {
+            color: var(--accent2);
+        }
+        th.sortable.sort-desc::after {
+            content: ' ▼';
+            opacity: 1;
+            color: var(--accent2);
         }
 
         {% block extra_css %}{% endblock %}
@@ -408,6 +440,95 @@
             });
         }
 
+        // Universal Client-side Table Value Parser for Sorting
+        function getCellSortValue(td, tr) {
+            if (!td) return '';
+            if (td.hasAttribute('data-sort-val')) {
+                const sv = td.getAttribute('data-sort-val');
+                const num = parseFloat(sv);
+                return isNaN(num) ? sv.toLowerCase() : num;
+            }
+            if (td.hasAttribute('data-epoch')) return parseInt(td.getAttribute('data-epoch'), 10);
+            if (tr && tr.hasAttribute('data-epoch') && (td.cellIndex === 1 || td.cellIndex === 0)) {
+                return parseInt(tr.getAttribute('data-epoch'), 10);
+            }
+            const raw = td.textContent.trim();
+            if (raw === '-' || raw === '' || raw === 'None' || raw === '??') return null;
+
+            // Check IP address format (e.g. 4.204.224.164)
+            const ipMatch = raw.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/);
+            if (ipMatch) {
+                const parts = ipMatch[0].split('.').map(Number);
+                return (parts[0] * 16777216) + (parts[1] * 65536) + (parts[2] * 256) + parts[3];
+            }
+
+            // Check Date format (YYYY-MM-DD HH:MM[:SS] or YYYY-MM-DD)
+            if (/^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}(:\d{2})?)?$/.test(raw)) {
+                const parsed = Date.parse(raw.replace(' ', 'T'));
+                if (!isNaN(parsed)) return parsed;
+            }
+
+            // Check Number format (e.g. 1,200 or 295 or 12.5% or 404)
+            const numClean = raw.replace(/[,\s%]/g, '');
+            if (/^-?\d+(\.\d+)?$/.test(numClean)) {
+                return parseFloat(numClean);
+            }
+
+            return raw.toLowerCase();
+        }
+
+        // Universal Table Sorting Engine
+        function makeTableSortable(tableSelector, paginator = null) {
+            const table = document.querySelector(tableSelector);
+            if (!table) return;
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+            if (!thead || !tbody) return;
+
+            const headers = thead.querySelectorAll('th');
+            headers.forEach((th, colIdx) => {
+                if (th.classList.contains('no-sort') || th.dataset.sortable === 'false') return;
+                th.classList.add('sortable');
+                th.setAttribute('title', 'Ordenar columna (Ascendente / Descendente)');
+
+                th.onclick = function() {
+                    const currentSort = th.classList.contains('sort-asc') ? 'asc' : (th.classList.contains('sort-desc') ? 'desc' : 'none');
+                    const newSort = currentSort === 'asc' ? 'desc' : 'asc';
+
+                    headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                    th.classList.add(newSort === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    if (rows.length <= 1) return;
+
+                    rows.sort((rowA, rowB) => {
+                        const tdA = rowA.children[colIdx];
+                        const tdB = rowB.children[colIdx];
+                        const valA = getCellSortValue(tdA, rowA);
+                        const valB = getCellSortValue(tdB, rowB);
+
+                        if (valA === null && valB === null) return 0;
+                        if (valA === null) return 1;
+                        if (valB === null) return -1;
+
+                        let cmp = 0;
+                        if (typeof valA === 'number' && typeof valB === 'number') {
+                            cmp = valA - valB;
+                        } else {
+                            cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
+                        }
+                        return newSort === 'asc' ? cmp : -cmp;
+                    });
+
+                    rows.forEach(r => tbody.appendChild(r));
+
+                    if (paginator) {
+                        paginator.update();
+                    }
+                };
+            });
+        }
+
         // Universal Client-side Table Paginator Component
         class TablePaginator {
             constructor(options) {
@@ -424,6 +545,7 @@
                 this.container = document.querySelector(this.containerSelector);
                 if (!this.container) return;
                 this.renderControls();
+                makeTableSortable(this.tableSelector, this);
                 this.update();
             }
 

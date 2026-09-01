@@ -115,7 +115,7 @@
                 <td style="text-align:right;" class="mono">{{ p.unique_ips }}</td>
                 <td style="text-align:right; color:var(--green);" class="mono">{{ p.human_hits }}</td>
                 <td style="text-align:right; color:var(--orange);" class="mono">{{ p.bot_hits }}</td>
-                <td style="text-align:right;">
+                <td style="text-align:right;" data-sort-val="{{ p.hits }}">
                     <span class="mono">{{ p.hits }}</span>
                     <div class="bar-bg"><div class="bar-fill" style="width:{{ (p.hits/max_h*100)|int }}%"></div></div>
                 </td>

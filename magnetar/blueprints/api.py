@@ -224,7 +224,7 @@ def api_status():
         hit_count = 0
     return jsonify({
         "status": "ok",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "hits_in_db": hit_count,
         **sync_info,
     })
@@ -271,4 +271,4 @@ def api_security_ban():
 
 @api_bp.route("/health")
 def health():
-    return jsonify({"status": "ok", "version": "0.3.0"})
+    return jsonify({"status": "ok", "version": "0.4.0"})

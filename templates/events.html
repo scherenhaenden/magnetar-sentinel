@@ -123,9 +123,10 @@
            {{ icon }} {{ et }} ({{ event_counts.get(et, 0) }})
         </a>
         {% endfor %}
+        <input type="text" id="events-search" placeholder="🔍 Filtrar evento, IP, ruta..." style="margin-left:auto; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius); font-size:0.85rem; width:220px;" onkeyup="filterEventsTable()">
     </div>
 
-    <table class="event-table">
+    <table class="event-table" id="events-table">
         <thead>
             <tr>
                 <th>Time (UTC)</th>
@@ -147,9 +148,15 @@
                 <td style="width:140px;">
                     <span class="badge badge-{{ e.event_type }}">{{ e.event_type }}</span>
                 </td>
-                <td class="mono" style="width:130px;">{{ e.ip }}</td>
+                <td class="mono" style="width:130px;">
+                    <a href="/visitors/{{ e.ip }}{% if not is_all_domains and raw_domain_param != 'all' %}?domain={{ raw_domain_param }}{% endif %}" style="color:var(--accent2); text-decoration:none; font-weight:500;">
+                        {{ e.ip }}
+                    </a>
+                </td>
                 <td class="mono" style="word-break: break-all;">
-                    {{ e.path }}
+                    <a href="/pages/detail?path={{ e.path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&amp;domain={{ raw_domain_param|urlencode }}{% endif %}" style="color:var(--accent2); text-decoration:none;">
+                        {{ e.path }}
+                    </a>
                 </td>
             </tr>
             {% else %}
@@ -161,5 +168,34 @@
             {% endfor %}
         </tbody>
     </table>
+    <div id="events-pagination-container"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let eventsPaginator = null;
+
+    function initEventsPaginator() {
+        eventsPaginator = new TablePaginator({
+            tableSelector: '#events-table',
+            containerSelector: '#events-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('events-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+    }
+
+    function filterEventsTable() {
+        if (eventsPaginator) {
+            eventsPaginator.currentPage = 1;
+            eventsPaginator.update();
+        }
+    }
+
+    initEventsPaginator();
+</script>
 {% endblock %}

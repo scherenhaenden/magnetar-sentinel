@@ -1,6 +1,6 @@
 # 🛰️ Magnetar Sentinel — Documentation & User Guide
 
-**Version:** `0.3.0`  
+**Version:** `0.4.0`  
 **License:** MIT License  
 **Repository:** [https://github.com/scherenhaenden/magnetar-sentinel](https://github.com/scherenhaenden/magnetar-sentinel)
 
@@ -33,7 +33,9 @@
                             [ Flask Modular Engine ]
                    ┌───────────────────────────────────────────┐
                    │  • Dashboard & Multi-Domain Filter Chips  │
-                   │  • Drilldown ("De dónde → Hacia dónde")   │
+                   │  • Visitor Profile & Hit Frequency Canvas │
+                   │  • Route Breakdown & Visitor Log Stream   │
+                   │  • Dynamic Pagination & Column Sorting    │
                    │  • Dedicated Reports (Pages/Ref/Geo/User) │
                    │  • Journey, Retention, Cohorts & Funnels  │
                    │  • Security Shield & IP Ban Manager       │
@@ -66,7 +68,7 @@ magnetar-sentinel/
 │   └── blueprints/
 │       ├── dashboard.py        # / and /dashboard routes
 │       ├── security.py         # /security shield and banned IPs view
-│       ├── reports.py          # /pages, /referrers, /countries, /visitors
+│       ├── reports.py          # /pages, /referrers, /countries, /visitors, /visitors/<ip>, /pages/detail
 │       ├── analytics.py        # /journey, /retention, /cohorts, /funnels, /events
 │       ├── settings.py         # /settings & DB inspector
 │       └── api.py              # REST & AJAX endpoints (/api/*)
@@ -137,10 +139,22 @@ Open **`http://localhost:5050`** in your browser.
 * **Single Click:** Isolates a single domain.
 * **Ctrl+Click / Shift+Click:** Combines multiple domains (e.g. `domain=example.com,blog.example.com`).
 
-### 🔍 Drilldown Analytics ("De dónde → Hacia dónde")
-* Clicking on any row in **🌍 Countries** or **🔗 External Referrers** opens an interactive drilldown breakdown:
-  * **Referrer Destination:** Shows the exact target articles, pages, and percentage of visitors brought by that search engine, forum, or social channel.
-  * **Country Audience:** Shows what articles readers from that country preferred and which referrers brought them.
+### 👤 Visitor Profile & Activity Dossier (`/visitors/<ip>`)
+* Comprehensive visitor dossier featuring:
+  * **Visitor KPIs:** IP address, location (Country/City with flags), Human vs. Bot badge, total sessions, and total hits.
+  * **Interactive Frequency Timeline (Drag-to-select / Brushing):** Real-time canvas histogram displaying hit distribution over time. Drag horizontally to select a time interval to instantly filter the hits table below.
+  * **Fail2ban Live Shield Status:** Direct indicator showing whether the IP is currently banned (`🚫 BANNED`) or active, with 1-click **Ban / Unban** action buttons.
+  * **Hit Breakdown Grid:** Granular log table of all hits made by the visitor with search, status code filtering, column sorting, and pagination.
+
+### ⚡ Route Breakdown & Visitor Stream (`/pages/detail?path=...`)
+* Deep per-resource breakdown showing:
+  * **Resource Overview:** Total hits, unique visitors count, human vs. bot ratio, and HTTP status distribution.
+  * **Visitor Breakdown Tab:** Tabular list of every visitor who requested that path, their location, hit count on that path, first/last seen timestamps, and User-Agent.
+  * **Hit Stream Tab:** Chronological hit feed with full timestamp and referrers.
+
+### 📄 Dynamic Pagination & Multi-Column Sorting
+* **Universal Paginator (`TablePaginator`):** Select page size (`10`, `25`, `50`, `100`, `Todos`), navigate with numeric buttons and ellipsis, with real-time record count summaries.
+* **Universal Table Sorter (`makeTableSortable`):** Type-aware sorting engine (ASC `▲` / DESC `▼`) handling numbers, formatted quantities with commas, ISO timestamps, dates, IP addresses by octet, and natural strings.
 
 ### 🛡️ Fail2ban & Security Shield
 * **Producción (`nginx-critical-probes`):**
@@ -155,10 +169,10 @@ Open **`http://localhost:5050`** in your browser.
 ### 📊 Dedicated Reports & Navigation
 * **`/dashboard`:** KPI summary cards, draggable grid widgets, and quick action toolbar.
 * **`/security`:** Live firewall shield inspector and IP ban table.
-* **`/pages`:** Full inventory of all visited pages, unique readers, human hits, and top traffic source.
+* **`/pages`:** Full inventory of all visited pages, unique readers, human hits, and top traffic source (links to `/pages/detail`).
 * **`/referrers`:** Side-by-side acquisition report (Domains, Full URLs, and Extracted Search Keywords).
 * **`/countries`:** Geographic distribution of visitors and per-country content metrics.
-* **`/visitors`:** Real-time visitor log with session counts, last activity, and `🚫 BANNED` tags.
+* **`/visitors`:** Real-time visitor log with session counts, last activity, and `🚫 BANNED` tags (links to `/visitors/<ip>`).
 * **`/journey`:** Top user navigation sequences and pure SVG Sankey-style transition diagrams.
 * **`/retention`:** Weekly IP cohort retention matrix.
 * **`/funnels`:** Visual step conversion funnels and interactive funnel builder.
@@ -171,8 +185,8 @@ Open **`http://localhost:5050`** in your browser.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/health` | Public service health check (`{"status": "ok", "version": "0.3.0"}`) |
-| `GET` | `/api/status` | Current sync timestamp and DB hit count |
+| `GET` | `/health` | Public service health check (`{"status": "ok", "version": "0.4.0"}`) |
+| `GET` | `/api/status` | Current sync timestamp, version and DB hit count |
 | `GET` | `/api/security/status` | Active Fail2ban jails and list of currently banned IPs |
 | `POST`| `/api/security/unban` | Unban an IP (`{"jail": "...", "ip": "..."}`) |
 | `POST`| `/api/security/ban` | Ban an IP (`{"jail": "...", "ip": "..."}`) |

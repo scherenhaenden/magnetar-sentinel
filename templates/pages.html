@@ -82,8 +82,11 @@
 </div>
 
 <div class="card">
-    <h3 class="card-title">📰 Todas las Páginas y Artículos Visitados</h3>
-    <table>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+        <h3 class="card-title" style="margin:0;">📰 Todas las Páginas y Artículos Visitados ({{ pages_data|length }})</h3>
+        <input type="text" id="pages-search" placeholder="🔍 Filtrar ruta, dominio..." style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius); font-size:0.85rem; width:220px;" onkeyup="filterPagesTable()">
+    </div>
+    <table id="pages-table">
         <thead>
             <tr>
                 <th>Ruta / Recurso</th>
@@ -98,8 +101,10 @@
             {% set max_h = pages_data[0].hits if pages_data else 1 %}
             {% for p in pages_data %}
             <tr>
-                <td class="mono" style="color:var(--accent2); word-break:break-all;">
-                    {{ p.path }}
+                <td class="mono" style="word-break:break-all;">
+                    <a href="/pages/detail?path={{ p.path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" style="color:var(--accent2); text-decoration:none; font-weight:500;">
+                        {{ p.path }}
+                    </a>
                     {% if p.top_referrers %}
                     <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">
                         Top origen: <span style="color:var(--text)">{{ p.top_referrers[0] }}</span>
@@ -110,7 +115,7 @@
                 <td style="text-align:right;" class="mono">{{ p.unique_ips }}</td>
                 <td style="text-align:right; color:var(--green);" class="mono">{{ p.human_hits }}</td>
                 <td style="text-align:right; color:var(--orange);" class="mono">{{ p.bot_hits }}</td>
-                <td style="text-align:right;">
+                <td style="text-align:right;" data-sort-val="{{ p.hits }}">
                     <span class="mono">{{ p.hits }}</span>
                     <div class="bar-bg"><div class="bar-fill" style="width:{{ (p.hits/max_h*100)|int }}%"></div></div>
                 </td>
@@ -120,5 +125,34 @@
             {% endfor %}
         </tbody>
     </table>
+    <div id="pages-pagination-container"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let pagesPaginator = null;
+
+    function initPagesPaginator() {
+        pagesPaginator = new TablePaginator({
+            tableSelector: '#pages-table',
+            containerSelector: '#pages-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('pages-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+    }
+
+    function filterPagesTable() {
+        if (pagesPaginator) {
+            pagesPaginator.currentPage = 1;
+            pagesPaginator.update();
+        }
+    }
+
+    initPagesPaginator();
+</script>
 {% endblock %}

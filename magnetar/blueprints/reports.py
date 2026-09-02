@@ -251,11 +251,13 @@ def visitor_detail(ip: str):
 
             country = visitor.country if visitor and visitor.country else (sessions[0].country if (sessions and sessions[0].country) else "Unknown")
             country_code = visitor.country_code if visitor and visitor.country_code else (sessions[0].country_code if (sessions and sessions[0].country_code) else "??")
-            city = visitor.city if visitor and visitor.city else (sessions[0].country if False else "")
+            city = visitor.city if visitor and visitor.city else "Unknown"
             first_seen = visitor.first_seen.strftime("%Y-%m-%d %H:%M:%S") if visitor and visitor.first_seen else (hits_data[-1]["occurred_at"] if hits_data else "-")
             last_seen = visitor.last_seen.strftime("%Y-%m-%d %H:%M:%S") if visitor and visitor.last_seen else (hits_data[0]["occurred_at"] if hits_data else "-")
-            total_sessions = visitor.total_sessions if visitor and visitor.total_sessions else (len(sessions) or 1)
-            total_hits = visitor.total_hits if visitor and visitor.total_hits else len(hits_data)
+            # These values must match the currently selected domain filter, not
+            # the visitor-wide aggregate stored on the visitor record.
+            total_sessions = len(sessions)
+            total_hits = len(hits_data)
 
             visitor_info = {
                 "ip": ip,
@@ -320,7 +322,16 @@ def page_detail():
             last_sync=get_sync_info(),
         ), 400
 
-    days = int(request.args.get("days", 30))
+    try:
+        days = int(request.args.get("days", 30))
+    except (TypeError, ValueError):
+        return render_template(
+            "error.html",
+            error_title="Invalid Page Request",
+            error_message="The days parameter must be a whole number.",
+            error_detail=None,
+            last_sync=get_sync_info(),
+        ), 400
     raw_domain = request.args.get("domain", "all")
     selected_domains = parse_domain_filter(raw_domain)
     since = datetime.now(timezone.utc) - timedelta(days=days)
@@ -367,9 +378,9 @@ def page_detail():
                         v["last_seen"] = h.occurred_at
                     if not v["first_seen"] or h.occurred_at < v["first_seen"]:
                         v["first_seen"] = h.occurred_at
-                if h.status:
-                    v["status_codes"][h.status] += 1
-                    status_distribution[h.status] += 1
+                status = h.status or 200
+                v["status_codes"][status] += 1
+                status_distribution[status] += 1
                 if h.method:
                     v["methods"][h.method] += 1
                 if h.domain:
@@ -453,4 +464,3 @@ def page_detail():
         raw_domain=raw_domain,
         last_sync=get_sync_info(),
     )
-

@@ -105,6 +105,12 @@ def test_page_detail_missing_path(client):
     assert res.status_code == 400
 
 
+def test_page_detail_rejects_invalid_days(client):
+    res = client.get("/pages/detail?path=/myshell.php&days=not-a-number", headers=_auth_headers())
+    assert res.status_code == 400
+    assert "days parameter must be a whole number" in res.get_data(as_text=True)
+
+
 def test_page_detail_authenticated(client):
     headers = _auth_headers()
     res = client.get("/pages/detail?path=/myshell.php", headers=headers)

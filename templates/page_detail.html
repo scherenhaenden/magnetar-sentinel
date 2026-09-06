@@ -1,0 +1,388 @@
+{% extends "_base.html" %}
+{% block title %}Route {{ page.path }} - Magnetar Sentinel{% endblock %}
+{% block page_title %}📰 Route & Content Breakdown{% endblock %}
+
+{% block extra_css %}
+<style>
+    .back-nav {
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.88rem;
+        padding: 5px 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        transition: all 0.15s;
+    }
+    .back-btn:hover {
+        color: var(--text);
+        border-color: var(--muted);
+        text-decoration: none;
+    }
+
+    .route-header-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+        margin-bottom: 20px;
+    }
+    .route-path-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        font-family: var(--mono);
+        color: var(--accent2);
+        word-break: break-all;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-top: 15px;
+    }
+    .kpi-card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        text-align: center;
+    }
+    .kpi-val {
+        font-size: 1.5rem;
+        font-weight: 700;
+        font-family: var(--mono);
+        color: var(--text);
+    }
+    .kpi-lbl {
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 4px;
+    }
+
+    .badge-bot {
+        background: rgba(245,166,35,0.18);
+        color: var(--orange);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .badge-human {
+        background: rgba(62,207,142,0.18);
+        color: var(--green);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .badge-banned {
+        background: rgba(224,64,96,0.25);
+        color: var(--accent);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .st-2xx { background: rgba(62, 207, 142, 0.2); color: var(--green); }
+    .st-3xx { background: rgba(58, 143, 232, 0.2); color: var(--accent2); }
+    .st-4xx { background: rgba(245, 166, 35, 0.2); color: var(--orange); }
+    .st-5xx { background: rgba(224, 64, 96, 0.25); color: var(--accent); }
+
+    .search-input {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px 12px;
+        border-radius: var(--radius);
+        font-size: 0.85rem;
+        width: 220px;
+    }
+
+    .ip-link {
+        color: var(--accent2);
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .ip-link:hover {
+        text-decoration: underline;
+    }
+
+    .subtabs-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    .subtab-btn {
+        padding: 6px 14px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        color: var(--text);
+        background: transparent;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .subtab-btn.active {
+        background: var(--accent2);
+        border-color: var(--accent2);
+        color: #fff;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div class="back-nav">
+    <a href="/pages{% if not is_all_domains and raw_domain_param != 'all' %}?domain={{ raw_domain_param }}{% endif %}" class="back-btn">
+        ← Volver a Páginas
+    </a>
+    <span style="color:var(--muted); font-size:0.85rem;">/</span>
+    <span class="mono" style="color:var(--text); font-size:0.85rem; max-width:350px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ page.path }}</span>
+</div>
+
+<!-- Route Overview Header Card -->
+<div class="route-header-card">
+    <div class="route-path-title">
+        <span>📄</span>
+        <span>{{ page.path }}</span>
+    </div>
+
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-val" style="color:var(--accent2)">{{ "{:,}".format(page.total_hits) }}</div>
+            <div class="kpi-lbl">Total Hits</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-val">{{ page.unique_visitors }}</div>
+            <div class="kpi-lbl">Visitantes Únicos</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-val" style="color:var(--green)">{{ page.human_hits }}</div>
+            <div class="kpi-lbl">Humanos</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-val" style="color:var(--orange)">{{ page.bot_hits }}</div>
+            <div class="kpi-lbl">Bots / Crawlers</div>
+        </div>
+    </div>
+
+    <!-- Status Codes & Referrers preview -->
+    <div style="margin-top:16px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; font-size:0.82rem; color:var(--muted); border-top:1px solid var(--border); padding-top:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span>Códigos de respuesta:</span>
+            {% for code, count in page.status_distribution.items() %}
+            <span class="status-badge {% if code < 300 %}st-2xx{% elif code < 400 %}st-3xx{% elif code < 500 %}st-4xx{% else %}st-5xx{% endif %}">
+                {{ code }}: {{ count }}
+            </span>
+            {% endfor %}
+        </div>
+        {% if page.top_referrers %}
+        <div style="display:flex; align-items:center; gap:6px;">
+            <span>Top Origen:</span>
+            <strong style="color:var(--text)" class="mono">{{ page.top_referrers[0].referer }}</strong> ({{ page.top_referrers[0].count }} hits)
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Main Content Card with Subtabs -->
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+        <div class="subtabs-bar" style="margin-bottom:0;">
+            <button class="subtab-btn active" id="btn-tab-visitors" onclick="switchRouteTab('visitors')">
+                👥 Visitantes Desglosados ({{ visitors|length }})
+            </button>
+            <button class="subtab-btn" id="btn-tab-hits" onclick="switchRouteTab('hits')">
+                ⚡ Flujo de Hits Individuales ({{ hits|length }})
+            </button>
+        </div>
+
+        <input type="text" id="route-search" class="search-input" placeholder="🔍 Filtrar IP, país, agente..." onkeyup="filterRouteTables()">
+    </div>
+
+    <!-- 1. Desglose de Visitantes (IP, fecha, hits, ubicación) -->
+    <div id="tab-visitors-content">
+        <table id="visitors-table">
+            <thead>
+                <tr>
+                    <th>Dirección IP</th>
+                    <th>Tipo</th>
+                    <th>Ubicación</th>
+                    <th style="text-align:right;">Hits en Ruta</th>
+                    <th>Primera Visita</th>
+                    <th>Última Visita</th>
+                    <th>Códigos Recibidos</th>
+                    <th>User-Agent Principal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in visitors %}
+                <tr>
+                    <td class="mono" style="white-space:nowrap;">
+                        <a href="/visitors/{{ v.ip }}{% if not is_all_domains and raw_domain_param != 'all' %}?domain={{ raw_domain_param }}{% endif %}" class="ip-link">
+                            {{ v.ip }}
+                        </a>
+                        {% if v.is_banned %}
+                        <span class="badge-banned" style="margin-left:4px;">🚫 BANNED</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if v.is_bot %}
+                        <span class="badge-bot">Bot</span>
+                        {% else %}
+                        <span class="badge-human">Human</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ v.country }} <span style="color:var(--muted); font-size:0.75rem">({{ v.country_code }})</span></td>
+                    <td style="text-align:right;" class="mono" style="font-weight:600;">{{ v.hits }}</td>
+                    <td class="mono" style="font-size:0.8rem; color:var(--muted)">{{ v.first_seen }}</td>
+                    <td class="mono" style="font-size:0.8rem; color:var(--text)">{{ v.last_seen }}</td>
+                    <td style="font-size:0.78rem;" class="mono">{{ v.status_codes|join(', ') }}</td>
+                    <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.75rem; color:var(--muted);" title="{{ v.top_ua }}">
+                        {{ v.top_ua }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-state"><td colspan="8" style="text-align:center; color:var(--muted); padding:30px;">No se registraron visitantes para esta ruta en el periodo.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="visitors-pagination-container"></div>
+    </div>
+
+    <!-- 2. Flujo Completo de Hits -->
+    <div id="tab-hits-content" style="display:none;">
+        <table id="hits-stream-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th style="width:160px;">Fecha y Hora (UTC)</th>
+                    <th>Dirección IP</th>
+                    <th>Método</th>
+                    <th>Estado</th>
+                    <th>Referer</th>
+                    <th style="text-align:right;">Bytes</th>
+                    <th>User-Agent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in hits %}
+                <tr>
+                    <td style="color:var(--muted); font-size:0.75rem;">{{ loop.index }}</td>
+                    <td class="mono" style="color:var(--muted); font-size:0.8rem; white-space:nowrap;">{{ h.occurred_at }}</td>
+                    <td class="mono">
+                        <a href="/visitors/{{ h.ip }}{% if not is_all_domains and raw_domain_param != 'all' %}?domain={{ raw_domain_param }}{% endif %}" class="ip-link">
+                            {{ h.ip }}
+                        </a>
+                    </td>
+                    <td class="mono" style="font-size:0.8rem; font-weight:600;">{{ h.method }}</td>
+                    <td>
+                        <span class="status-badge {% if h.status < 300 %}st-2xx{% elif h.status < 400 %}st-3xx{% elif h.status < 500 %}st-4xx{% else %}st-5xx{% endif %}">
+                            {{ h.status }}
+                        </span>
+                    </td>
+                    <td class="mono" style="font-size:0.78rem; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted);">
+                        {{ h.referer }}
+                    </td>
+                    <td class="mono" style="text-align:right; font-size:0.8rem; color:var(--muted)">{{ h.bytes_sent }}</td>
+                    <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.75rem; color:var(--muted);" title="{{ h.user_agent }}">
+                        {{ h.user_agent }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-state"><td colspan="8" style="text-align:center; color:var(--muted); padding:30px;">No hits recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="hits-pagination-container"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let visitorsPaginator = null;
+    let hitsPaginator = null;
+
+    function initPagePaginators() {
+        visitorsPaginator = new TablePaginator({
+            tableSelector: '#visitors-table',
+            containerSelector: '#visitors-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('route-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+
+        hitsPaginator = new TablePaginator({
+            tableSelector: '#hits-stream-table',
+            containerSelector: '#hits-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('route-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+    }
+
+    function switchRouteTab(tab) {
+        const btnV = document.getElementById('btn-tab-visitors');
+        const btnH = document.getElementById('btn-tab-hits');
+        const contV = document.getElementById('tab-visitors-content');
+        const contH = document.getElementById('tab-hits-content');
+
+        if (tab === 'visitors') {
+            btnV.classList.add('active');
+            btnH.classList.remove('active');
+            contV.style.display = 'block';
+            contH.style.display = 'none';
+            if (visitorsPaginator) visitorsPaginator.update();
+        } else {
+            btnH.classList.add('active');
+            btnV.classList.remove('active');
+            contH.style.display = 'block';
+            contV.style.display = 'none';
+            if (hitsPaginator) hitsPaginator.update();
+        }
+    }
+
+    function filterRouteTables() {
+        if (visitorsPaginator) {
+            visitorsPaginator.currentPage = 1;
+            visitorsPaginator.update();
+        }
+        if (hitsPaginator) {
+            hitsPaginator.currentPage = 1;
+            hitsPaginator.update();
+        }
+    }
+
+    initPagePaginators();
+</script>
+{% endblock %}

@@ -105,12 +105,13 @@
 
 <div class="card">
     <div class="filter-bar">
-        <a href="?type=all{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">Todos los Visitantes</a>
+        <a href="?type=all{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">Todos los Visitantes ({{ visitors|length }})</a>
         <a href="?type=human{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'human' %}active{% endif %}">👤 Humanos</a>
         <a href="?type=bot{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" class="filter-btn {% if filter_type == 'bot' %}active{% endif %}">🤖 Bots & Crawlers</a>
+        <input type="text" id="visitors-search" placeholder="🔍 Filtrar IP, país, ruta..." style="margin-left:auto; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius); font-size:0.85rem; width:220px;" onkeyup="filterVisitorsTable()">
     </div>
 
-    <table>
+    <table id="visitors-table">
         <thead>
             <tr>
                 <th>Dirección IP</th>
@@ -126,8 +127,10 @@
         <tbody>
             {% for v in visitors %}
             <tr>
-                <td class="mono" style="color:var(--accent2); font-weight:600;">
-                    {{ v.ip }}
+                <td class="mono" style="font-weight:600;">
+                    <a href="/visitors/{{ v.ip }}{% if not is_all_domains and raw_domain_param != 'all' %}?domain={{ raw_domain_param }}{% endif %}" style="color:var(--accent2); text-decoration:none;">
+                        {{ v.ip }}
+                    </a>
                     {% if v.is_banned %}
                     <span style="background:rgba(224,64,96,0.25); color:var(--accent); font-size:0.72rem; padding:2px 6px; border-radius:4px; margin-left:6px;">🚫 BANNED</span>
                     {% endif %}
@@ -146,12 +149,45 @@
                 <td style="text-align:right;" class="mono">{{ v.total_hits }}</td>
                 <td class="mono" style="font-size:0.8rem; color:var(--muted)">{{ v.first_seen }}</td>
                 <td class="mono" style="font-size:0.8rem; color:var(--text)">{{ v.last_seen }}</td>
-                <td class="mono" style="font-size:0.82rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ v.last_path }}</td>
+                <td class="mono" style="font-size:0.82rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <a href="/pages/detail?path={{ v.last_path|urlencode }}{% if not is_all_domains and raw_domain_param != 'all' %}&domain={{ raw_domain_param }}{% endif %}" style="color:var(--accent2); text-decoration:none;">
+                        {{ v.last_path }}
+                    </a>
+                </td>
             </tr>
             {% else %}
             <tr><td colspan="8" style="text-align:center; color:var(--muted); padding:30px;">No visitors found</td></tr>
             {% endfor %}
         </tbody>
     </table>
+    <div id="visitors-pagination-container"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let visitorsPaginator = null;
+
+    function initVisitorsPaginator() {
+        visitorsPaginator = new TablePaginator({
+            tableSelector: '#visitors-table',
+            containerSelector: '#visitors-pagination-container',
+            pageSize: 25,
+            customFilter: (row) => {
+                const query = document.getElementById('visitors-search').value.toLowerCase().trim();
+                if (!query) return true;
+                return row.textContent.toLowerCase().includes(query);
+            }
+        });
+    }
+
+    function filterVisitorsTable() {
+        if (visitorsPaginator) {
+            visitorsPaginator.currentPage = 1;
+            visitorsPaginator.update();
+        }
+    }
+
+    initVisitorsPaginator();
+</script>
 {% endblock %}

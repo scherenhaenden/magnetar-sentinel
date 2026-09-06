@@ -12,8 +12,8 @@ from typing import Optional
 
 
 def _run_fail2ban_cmd(args: list[str]) -> str:
-    """Execute fail2ban-client command safely with sudo fallback."""
-    cmd = ["sudo", "/usr/bin/fail2ban-client"] + args
+    """Execute fail2ban-client command safely with non-interactive sudo fallback."""
+    cmd = ["sudo", "-n", "/usr/bin/fail2ban-client"] + args
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         if res.returncode == 0:

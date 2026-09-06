@@ -1,7 +1,7 @@
 # 🛰️ Magnetar Sentinel
 
 [![CI/CD Pipeline](https://github.com/scherenhaenden/magnetar-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/scherenhaenden/magnetar-sentinel/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/scherenhaenden/magnetar-sentinel)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/scherenhaenden/magnetar-sentinel)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.14-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Proprietary-lightgrey.svg)](LICENSE)
 
@@ -13,6 +13,10 @@
 ## 🌟 Key Features
 
 * **🎯 Multi-Domain Intelligence:** Real-time log discovery across multiple sites (`example.com`, `blog.example.com`, `docs.example.com`, and global `🌐 All Domains` view) with interactive filter chips and multi-select support (`Ctrl+Click` / `Shift+Click`).
+* **👤 Deep Visitor Profile Drilldown (`/visitors/<ip>`):** Dedicated profile dossier for every unique visitor. Displays location, bot/human classification, total hits/sessions, date boundaries, **interactive canvas timeline frequency histogram with drag-to-select (*brushing*)**, Fail2ban live shield status, and instant 1-click **Ban / Unban** firewall controls.
+* **⚡ Route Breakdown & Visitor Stream (`/pages/detail?path=...`):** Per-route deep drilldown showing unique audience logs, first/last seen timestamps, response code breakdown, and chronological hit stream.
+* **📄 Dynamic Grid Pagination & Search Filters:** Configurable page size dropdown (`10`, `25`, `50`, `100`, `Todos`), fast page navigation (`« ‹ 1 2 3 ... › »`), total counter display, and instant client-side search across all tabular views.
+* **🔀 Intelligent Multi-Column Sorting (ASC / DESC):** Type-aware table headers supporting accurate sorting for numbers (integers, floats, formatted commas, bytes), ISO/SQL dates and timestamps, IP address octets (e.g. `4.204.224.164` vs `95.117.38.236`), and natural strings.
 * **🔍 Granular Drilldown (*"De dónde → Hacia dónde"*):** Click on any country or referrer to reveal the exact destination articles, landing pages, traffic percentages, and origin breakdown.
 * **🔗 3-Way Referrer Inspector:** Switch seamlessly between **🌐 Dominios** (Host-level aggregates), **🔗 URLs Completas** (full paths, UTM campaigns, forum subreddits), and **🔍 Keywords / Búsquedas** (automatically extracted search terms).
 * **🛡️ Fail2ban & Firewall Active Shield (`/security`):**
@@ -20,10 +24,10 @@
   * **Non-Prod (`nginx-dev-tolerant`):** Relaxed threshold (`maxretry = 10`, `bantime = 1h`) with immunity for standard 400/404 development errors.
   * **Live Shield Dashboard:** Real-time table of all blocked IPs, active jail statuses, 1-click **Unban**, and instant **Manual Ban** controls.
 * **📊 Dedicated Full-Screen Reports:**
-  * 📰 **`/pages`:** Full inventory of all visited pages, unique readers, human hits, bot hits, and top traffic source.
+  * 📰 **`/pages`:** Full inventory of all visited pages, unique readers, human hits, bot hits, and top traffic source with links to route breakdown.
   * 🔗 **`/referrers`:** Side-by-side acquisition channel reports with interactive destination inspectors.
   * 🌍 **`/countries`:** Geographic distribution (GeoIP2) with per-country audience preferences.
-  * 👥 **`/visitors`:** Visitor log with session counters, human vs. bot filters, and live **`🚫 BANNED`** tags.
+  * 👥 **`/visitors`:** Visitor log with session counters, human vs. bot filters, live **`🚫 BANNED`** tags, and links to visitor profiles.
 * **🗺️ Behavioral Analytics:**
   * 🗺️ **`/journey`:** Top 20 user navigation sequences and pure SVG Sankey flow transitions.
   * 🔄 **`/retention`:** Weekly IP cohort retention matrix.

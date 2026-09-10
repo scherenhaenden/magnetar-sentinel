@@ -124,6 +124,7 @@ def visitors_page():
     days = int(request.args.get("days", 30))
     raw_domain = request.args.get("domain", "all")
     selected_domains = parse_domain_filter(raw_domain)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
 
     visitors_list = []
     try:
@@ -134,38 +135,92 @@ def visitors_page():
 
     try:
         with get_db_session() as db:
-            if not selected_domains:
-                visitors = db.execute(sa.select(Visitor).order_by(Visitor.last_seen.desc()).limit(200)).scalars().all()
-            else:
-                s_rows = db.execute(sa.select(VisitSession.visitor_ip).where(VisitSession.domain.in_(selected_domains))).scalars().all()
-                dom_ips = set(s_rows)
-                visitors = db.execute(sa.select(Visitor).where(Visitor.ip.in_(dom_ips)).order_by(Visitor.last_seen.desc()).limit(200)).scalars().all()
+            # 1. Base aggregation on Hit table applying days and domain filters
+            hq = sa.select(
+                Hit.ip,
+                sa.func.count(Hit.id).label("hits_count"),
+                sa.func.min(Hit.occurred_at).label("first_seen"),
+                sa.func.max(Hit.occurred_at).label("last_seen"),
+            ).where(Hit.occurred_at >= since)
 
-            for v in visitors:
-                recent_hit = db.execute(
-                    sa.select(Hit).where(Hit.ip == v.ip).order_by(Hit.occurred_at.desc()).limit(1)
-                ).scalars().first()
+            if selected_domains:
+                hq = hq.where(Hit.domain.in_(selected_domains))
 
-                is_bot = recent_hit.is_bot if recent_hit else False
-                if filter_type == "human" and is_bot:
-                    continue
-                if filter_type == "bot" and not is_bot:
-                    continue
+            if filter_type == "human":
+                hq = hq.where(Hit.is_bot.is_(False))
+            elif filter_type == "bot":
+                hq = hq.where(Hit.is_bot.is_(True))
 
-                visitors_list.append({
-                    "ip": v.ip,
-                    "country": v.country or "Unknown",
-                    "country_code": v.country_code or "??",
-                    "city": v.city or "",
-                    "total_sessions": v.total_sessions or 1,
-                    "total_hits": v.total_hits or 1,
-                    "first_seen": v.first_seen.strftime("%Y-%m-%d %H:%M") if v.first_seen else "-",
-                    "last_seen": v.last_seen.strftime("%Y-%m-%d %H:%M") if v.last_seen else "-",
-                    "is_bot": is_bot,
-                    "is_banned": v.ip in banned_ips_set,
-                    "last_path": recent_hit.path if recent_hit else "/",
-                    "last_ua": recent_hit.user_agent if recent_hit else "",
-                })
+            ip_aggregates = db.execute(
+                hq.group_by(Hit.ip).order_by(sa.desc("last_seen")).limit(200)
+            ).all()
+
+            target_ips = [row[0] for row in ip_aggregates]
+
+            if target_ips:
+                # 2. Fetch latest hit for each target IP within domain & date range (fast tuple projection)
+                latest_hits_q = sa.select(Hit.ip, Hit.path, Hit.user_agent, Hit.is_bot).where(
+                    Hit.ip.in_(target_ips),
+                    Hit.occurred_at >= since,
+                )
+                if selected_domains:
+                    latest_hits_q = latest_hits_q.where(Hit.domain.in_(selected_domains))
+
+                all_recent_hits = db.execute(
+                    latest_hits_q.order_by(Hit.occurred_at.desc())
+                ).all()
+
+                latest_hit_by_ip = {}
+                for ip_val, path_val, ua_val, is_bot_val in all_recent_hits:
+                    if ip_val not in latest_hit_by_ip:
+                        latest_hit_by_ip[ip_val] = (path_val, ua_val, is_bot_val)
+
+                # 3. Session counts per IP in selected domain & date range
+                sess_q = sa.select(
+                    VisitSession.visitor_ip,
+                    sa.func.count(VisitSession.id),
+                ).where(
+                    VisitSession.visitor_ip.in_(target_ips),
+                    VisitSession.started_at >= since,
+                )
+                if selected_domains:
+                    sess_q = sess_q.where(VisitSession.domain.in_(selected_domains))
+                sess_counts = dict(db.execute(sess_q.group_by(VisitSession.visitor_ip)).all())
+
+                # 4. Location metadata from Visitor table
+                vis_rows = db.execute(
+                    sa.select(Visitor).where(Visitor.ip.in_(target_ips))
+                ).scalars().all()
+                vis_by_ip = {v.ip: v for v in vis_rows}
+
+                for row in ip_aggregates:
+                    ip_addr = row[0]
+                    h_count = row[1]
+                    f_seen = row[2]
+                    l_seen = row[3]
+
+                    v_rec = vis_by_ip.get(ip_addr)
+                    l_hit_tuple = latest_hit_by_ip.get(ip_addr)
+                    is_bot = l_hit_tuple[2] if l_hit_tuple else False
+                    country = v_rec.country if v_rec and v_rec.country else "Unknown"
+                    country_code = v_rec.country_code if v_rec and v_rec.country_code else "??"
+                    city = v_rec.city if v_rec and v_rec.city else ""
+                    s_count = sess_counts.get(ip_addr, 1)
+
+                    visitors_list.append({
+                        "ip": ip_addr,
+                        "country": country,
+                        "country_code": country_code,
+                        "city": city,
+                        "total_sessions": s_count,
+                        "total_hits": h_count,
+                        "first_seen": f_seen.strftime("%Y-%m-%d %H:%M") if f_seen else "-",
+                        "last_seen": l_seen.strftime("%Y-%m-%d %H:%M") if l_seen else "-",
+                        "is_bot": is_bot,
+                        "is_banned": ip_addr in banned_ips_set,
+                        "last_path": l_hit_tuple[0] if l_hit_tuple else "/",
+                        "last_ua": l_hit_tuple[1] if l_hit_tuple else "",
+                    })
     except Exception:
         pass
 
@@ -251,11 +306,18 @@ def visitor_detail(ip: str):
 
             country = visitor.country if visitor and visitor.country else (sessions[0].country if (sessions and sessions[0].country) else "Unknown")
             country_code = visitor.country_code if visitor and visitor.country_code else (sessions[0].country_code if (sessions and sessions[0].country_code) else "??")
-            city = visitor.city if visitor and visitor.city else (sessions[0].country if False else "")
-            first_seen = visitor.first_seen.strftime("%Y-%m-%d %H:%M:%S") if visitor and visitor.first_seen else (hits_data[-1]["occurred_at"] if hits_data else "-")
-            last_seen = visitor.last_seen.strftime("%Y-%m-%d %H:%M:%S") if visitor and visitor.last_seen else (hits_data[0]["occurred_at"] if hits_data else "-")
-            total_sessions = visitor.total_sessions if visitor and visitor.total_sessions else (len(sessions) or 1)
-            total_hits = visitor.total_hits if visitor and visitor.total_hits else len(hits_data)
+            city = visitor.city if visitor and visitor.city else ""
+
+            if selected_domains:
+                first_seen = hits_data[-1]["occurred_at"] if hits_data else "-"
+                last_seen = hits_data[0]["occurred_at"] if hits_data else "-"
+                total_sessions = len(sessions)
+                total_hits = len(hits_data)
+            else:
+                first_seen = visitor.first_seen.strftime("%Y-%m-%d %H:%M:%S") if visitor and visitor.first_seen else (hits_data[-1]["occurred_at"] if hits_data else "-")
+                last_seen = visitor.last_seen.strftime("%Y-%m-%d %H:%M:%S") if visitor and visitor.last_seen else (hits_data[0]["occurred_at"] if hits_data else "-")
+                total_sessions = len(sessions) if sessions else (visitor.total_sessions if visitor and visitor.total_sessions else 1)
+                total_hits = len(hits_data) if hits_data else (visitor.total_hits if visitor and visitor.total_hits else 0)
 
             visitor_info = {
                 "ip": ip,

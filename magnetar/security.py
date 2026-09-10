@@ -75,7 +75,19 @@ def get_jail_details(jail_name: str) -> dict:
     }
 
 
-def get_security_overview() -> dict:
+import time
+
+_SECURITY_CACHE: dict | None = None
+_SECURITY_CACHE_TIME: float = 0.0
+_CACHE_TTL: float = 20.0  # 20 seconds TTL cache to prevent blocking web requests
+
+
+def get_security_overview(force: bool = False) -> dict:
+    global _SECURITY_CACHE, _SECURITY_CACHE_TIME
+    now = time.time()
+    if not force and _SECURITY_CACHE is not None and (now - _SECURITY_CACHE_TIME < _CACHE_TTL):
+        return _SECURITY_CACHE
+
     jails = get_active_jails()
     details = [get_jail_details(j) for j in jails]
     all_banned: list[dict] = []
@@ -89,13 +101,16 @@ def get_security_overview() -> dict:
     total_cur = sum(d["currently_banned"] for d in details)
     total_all = sum(d["total_banned"] for d in details)
 
-    return {
+    overview = {
         "is_active": len(jails) > 0,
         "jails": details,
         "banned_entries": all_banned,
         "total_currently_banned": total_cur,
         "total_all_time_banned": total_all,
     }
+    _SECURITY_CACHE = overview
+    _SECURITY_CACHE_TIME = now
+    return overview
 
 
 def get_banned_ips_set() -> set[str]:
@@ -104,10 +119,14 @@ def get_banned_ips_set() -> set[str]:
 
 
 def unban_ip_action(jail: str, ip: str) -> bool:
+    global _SECURITY_CACHE
+    _SECURITY_CACHE = None
     res = _run_fail2ban_cmd(["set", jail, "unbanip", ip])
     return bool(res and ("1" in res or ip in res or "unbanned" in res.lower()))
 
 
 def ban_ip_action(jail: str, ip: str) -> bool:
+    global _SECURITY_CACHE
+    _SECURITY_CACHE = None
     res = _run_fail2ban_cmd(["set", jail, "banip", ip])
     return bool(res and ("1" in res or ip in res or "banned" in res.lower()))

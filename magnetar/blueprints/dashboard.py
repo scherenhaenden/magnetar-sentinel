@@ -35,26 +35,38 @@ def build_summary_from_db(days: int, selected_domains: list[str]) -> Summary:
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
     with get_db_session() as db:
-        q = sa.select(Hit).where(Hit.occurred_at >= since)
+        q = sa.select(
+            Hit.ip,
+            Hit.occurred_at,
+            Hit.method,
+            Hit.path,
+            Hit.status,
+            Hit.bytes_sent,
+            Hit.referer,
+            Hit.user_agent,
+            Hit.is_bot,
+            Hit.domain,
+        ).where(Hit.occurred_at >= since)
         if selected_domains:
             q = q.where(Hit.domain.in_(selected_domains))
 
-        hits_q = db.execute(q).scalars().all()
+        hits_q = db.execute(q).all()
 
-        hit_dcs = []
-        for h in hits_q:
-            hdc = HitDC(
-                ip=h.ip,
-                dt=h.occurred_at,
-                method=h.method or "GET",
-                path=h.path,
-                status=h.status or 200,
-                bytes_sent=h.bytes_sent or 0,
-                referer=h.referer or "-",
-                user_agent=h.user_agent or "",
-                is_bot=h.is_bot,
+        hit_dcs = [
+            HitDC(
+                ip=row[0],
+                dt=row[1],
+                method=row[2] or "GET",
+                path=row[3],
+                status=row[4] or 200,
+                bytes_sent=row[5] or 0,
+                referer=row[6] or "-",
+                user_agent=row[7] or "",
+                is_bot=row[8],
+                domain=row[9] or "",
             )
-            hit_dcs.append(hdc)
+            for row in hits_q
+        ]
 
     return build_summary(hit_dcs, geoip_db_path=GEOIP_PATH, top_n=30)
 

@@ -1,7 +1,7 @@
 # 🛰️ Magnetar Sentinel
 
 [![CI/CD Pipeline](https://github.com/scherenhaenden/magnetar-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/scherenhaenden/magnetar-sentinel/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/scherenhaenden/magnetar-sentinel)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)](https://github.com/scherenhaenden/magnetar-sentinel)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.14-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Proprietary-lightgrey.svg)](LICENSE)
 

@@ -46,6 +46,7 @@ class Hit:
     referer: str
     user_agent: str
     is_bot: bool = field(default=False, compare=False)
+    domain: str = ""
 
     @property
     def is_page(self) -> bool:

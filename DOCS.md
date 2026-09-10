@@ -1,6 +1,6 @@
 # 🛰️ Magnetar Sentinel — Documentation & User Guide
 
-**Version:** `0.4.0`  
+**Version:** `0.4.1`  
 **License:** MIT License  
 **Repository:** [https://github.com/scherenhaenden/magnetar-sentinel](https://github.com/scherenhaenden/magnetar-sentinel)
 
@@ -185,7 +185,7 @@ Open **`http://localhost:5050`** in your browser.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/health` | Public service health check (`{"status": "ok", "version": "0.4.0"}`) |
+| `GET` | `/health` | Public service health check (`{"status": "ok", "version": "0.4.1"}`) |
 | `GET` | `/api/status` | Current sync timestamp, version and DB hit count |
 | `GET` | `/api/security/status` | Active Fail2ban jails and list of currently banned IPs |
 | `POST`| `/api/security/unban` | Unban an IP (`{"jail": "...", "ip": "..."}`) |

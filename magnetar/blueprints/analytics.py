@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import traceback
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import sqlalchemy as sa
 from flask import Blueprint, jsonify, render_template, request
 
@@ -22,7 +22,7 @@ from magnetar.auth import login_required
 from magnetar.context_processors import get_domain_stats, get_sync_info, parse_domain_filter
 from magnetar.db import get_db_session
 from magnetar.models import (
-    Event, FunnelDef, FunnelStep, JourneyStep, Session as VisitSession, Visitor,
+    Event, FunnelDef, FunnelStep, Hit, JourneyStep, Session as VisitSession, Visitor,
 )
 
 analytics_bp = Blueprint("analytics", __name__)
@@ -100,35 +100,53 @@ def retention():
     raw_domain = request.args.get("domain", "all")
     selected_domains = parse_domain_filter(raw_domain)
     cohorts = []
+    now_date = datetime.now(timezone.utc).date()
 
     try:
         with get_db_session() as db:
-            if not selected_domains:
-                visitors = db.execute(sa.select(Visitor).order_by(Visitor.first_seen)).scalars().all()
-            else:
-                all_sessions = db.execute(sa.select(VisitSession).where(VisitSession.domain.in_(selected_domains))).scalars().all()
-                dom_ips = set(s.visitor_ip for s in all_sessions)
-                visitors = db.execute(sa.select(Visitor).where(Visitor.ip.in_(dom_ips)).order_by(Visitor.first_seen)).scalars().all()
+            # 1. Fetch sessions for the selected domain(s)
+            sq = sa.select(VisitSession.visitor_ip, VisitSession.started_at)
+            if selected_domains:
+                sq = sq.where(VisitSession.domain.in_(selected_domains))
+            sessions = db.execute(sq).all()
 
-            week_cohorts: dict[str, set[str]] = defaultdict(set)
-            for v in visitors:
-                if not v.first_seen:
+            # Map active IPs by week and identify each IP's first session week
+            active_ips_by_week: dict[date, set[str]] = defaultdict(set)
+            first_week_by_ip: dict[str, date] = {}
+
+            for ip, started_at in sessions:
+                if not started_at:
                     continue
-                week_start = v.first_seen.date() - timedelta(days=v.first_seen.weekday())
-                week_label = week_start.strftime("%b %d")
-                week_cohorts[week_label].add(v.ip)
+                s_date = started_at.date()
+                w_start = s_date - timedelta(days=s_date.weekday())
+                active_ips_by_week[w_start].add(ip)
 
-            all_weeks = sorted(week_cohorts.keys())
+                if ip not in first_week_by_ip or w_start < first_week_by_ip[ip]:
+                    first_week_by_ip[ip] = w_start
 
-            for week_label in all_weeks:
-                cohort_ips = week_cohorts[week_label]
+            cohort_ips_by_week: dict[date, set[str]] = defaultdict(set)
+            for ip, first_w in first_week_by_ip.items():
+                cohort_ips_by_week[first_w].add(ip)
+
+            sorted_weeks = sorted(cohort_ips_by_week.keys())
+            # Keep the last 12 cohorts at most for clean display
+            if len(sorted_weeks) > 12:
+                sorted_weeks = sorted_weeks[-12:]
+
+            for w_start in sorted_weeks:
+                cohort_ips = cohort_ips_by_week[w_start]
+                week_label = w_start.strftime("%b %d")
                 retention_row = [100.0]
-                week_idx = all_weeks.index(week_label)
-                for future_week in all_weeks[week_idx + 1: week_idx + 5]:
-                    future_ips = week_cohorts[future_week]
-                    retained = cohort_ips & future_ips
-                    pct = (len(retained) / len(cohort_ips) * 100) if cohort_ips else 0
-                    retention_row.append(round(pct, 1))
+
+                for offset in range(1, 5):
+                    target_week = w_start + timedelta(weeks=offset)
+                    if target_week > now_date:
+                        retention_row.append(None)
+                    else:
+                        active_in_target = active_ips_by_week.get(target_week, set())
+                        retained = cohort_ips & active_in_target
+                        pct = round(len(retained) / len(cohort_ips) * 100, 1) if cohort_ips else 0.0
+                        retention_row.append(pct)
 
                 while len(retention_row) < 5:
                     retention_row.append(None)
@@ -165,36 +183,60 @@ def cohorts():
 
     try:
         with get_db_session() as db:
-            if not selected_domains:
-                visitors = db.execute(sa.select(Visitor).order_by(Visitor.first_seen)).scalars().all()
-            else:
-                sessions_dom = db.execute(sa.select(VisitSession.visitor_ip).where(VisitSession.domain.in_(selected_domains))).scalars().all()
-                dom_ips = set(sessions_dom)
-                visitors = db.execute(sa.select(Visitor).where(Visitor.ip.in_(dom_ips)).order_by(Visitor.first_seen)).scalars().all()
+            # 1. Fetch domain hits for accurate weekly hit and visitor metrics
+            hq = sa.select(Hit.ip, Hit.occurred_at, Hit.is_bot)
+            if selected_domains:
+                hq = hq.where(Hit.domain.in_(selected_domains))
+            hits = db.execute(hq).all()
 
-            week_data: dict[str, dict] = defaultdict(lambda: {
-                "new_visitors": 0, "total_hits": 0,
-                "countries": Counter(),
-            })
+            first_seen_by_ip: dict[str, date] = {}
+            hits_by_week: dict[date, int] = Counter()
+            bot_hits_by_week: dict[date, int] = Counter()
 
-            for v in visitors:
-                if not v.first_seen:
+            for ip, dt, is_bot in hits:
+                if not dt:
                     continue
-                week_start = v.first_seen.date() - timedelta(days=v.first_seen.weekday())
-                wk = week_start.strftime("%b %d")
-                week_data[wk]["new_visitors"] += 1
-                week_data[wk]["total_hits"] += v.total_hits or 0
-                if v.country:
-                    week_data[wk]["countries"][v.country] += 1
+                d = dt.date()
+                w = d - timedelta(days=d.weekday())
+                hits_by_week[w] += 1
+                if is_bot:
+                    bot_hits_by_week[w] += 1
+                if ip not in first_seen_by_ip or d < first_seen_by_ip[ip]:
+                    first_seen_by_ip[ip] = d
 
-            for wk in sorted(week_data.keys()):
-                d = week_data[wk]
-                top_c = [c for c, _ in d["countries"].most_common(3)]
+            new_visitors_by_week: dict[date, int] = Counter()
+            cohort_ips_by_week: dict[date, list[str]] = defaultdict(list)
+            for ip, fdate in first_seen_by_ip.items():
+                fw = fdate - timedelta(days=fdate.weekday())
+                new_visitors_by_week[fw] += 1
+                cohort_ips_by_week[fw].append(ip)
+
+            # Get country info for top countries
+            all_first_ips = list(first_seen_by_ip.keys())
+            vis_map = {}
+            if all_first_ips:
+                v_rows = db.execute(sa.select(Visitor.ip, Visitor.country).where(Visitor.ip.in_(all_first_ips[:2000]))).all()
+                vis_map = {row[0]: row[1] for row in v_rows if row[1]}
+
+            sorted_weeks = sorted(hits_by_week.keys())
+            if len(sorted_weeks) > 12:
+                sorted_weeks = sorted_weeks[-12:]
+
+            for w in sorted_weeks:
+                wk_str = w.strftime("%b %d")
+                t_hits = hits_by_week[w]
+                b_hits = bot_hits_by_week[w]
+                b_pct = round(b_hits / t_hits * 100, 1) if t_hits else 0.0
+
+                w_ips = cohort_ips_by_week.get(w, [])
+                c_counts = Counter(vis_map[ip] for ip in w_ips if ip in vis_map)
+                top_c = [c for c, _ in c_counts.most_common(3)]
+
                 cohort_rows.append({
-                    "week": wk,
-                    "new_visitors": d["new_visitors"],
-                    "total_hits": d["total_hits"],
-                    "bot_pct": 12.5,
+                    "week": wk_str,
+                    "new_visitors": new_visitors_by_week[w],
+                    "total_hits": t_hits,
+                    "bot_pct": b_pct,
                     "top_countries": top_c or ["Various"],
                 })
     except Exception as exc:

@@ -1,6 +1,6 @@
 """Tests for visitor profile drilldown and route breakdown views."""
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import pytest
 import sqlalchemy as sa
 from app import app
@@ -29,13 +29,14 @@ def seed_sample_data():
         db.execute(sa.delete(Visitor).where(Visitor.ip == "4.204.224.164"))
         db.commit()
 
+        now = datetime.now(timezone.utc).replace(microsecond=0)
         v = Visitor(
             ip="4.204.224.164",
             country="Canada",
             country_code="CA",
             city="Toronto",
-            first_seen=datetime(2026, 9, 1, 4, 47, 0),
-            last_seen=datetime(2026, 9, 1, 5, 28, 0),
+            first_seen=now - timedelta(days=2),
+            last_seen=now - timedelta(hours=1),
             total_sessions=3,
             total_hits=2,
         )
@@ -44,7 +45,7 @@ def seed_sample_data():
         h1 = Hit(
             domain="example.com",
             ip="4.204.224.164",
-            occurred_at=datetime(2026, 9, 1, 4, 47, 12),
+            occurred_at=now - timedelta(days=2),
             method="GET",
             path="/myshell.php",
             status=200,
@@ -56,7 +57,7 @@ def seed_sample_data():
         h2 = Hit(
             domain="example.com",
             ip="4.204.224.164",
-            occurred_at=datetime(2026, 9, 1, 5, 28, 30),
+            occurred_at=now - timedelta(hours=1),
             method="POST",
             path="/myshell.php",
             status=404,
